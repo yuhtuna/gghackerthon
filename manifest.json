@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "Findable",
+  "version": "0.1.0",
+  "description": "Everything is findable.",
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
+  "background": {
+    "service_worker": "src/background.ts",
+    "type": "module"
+  },
+  "commands": {
+    "open-findable-search": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+F",
+        "mac": "Command+Shift+F"
+      },
+      "description": "Open the Findable search bar"
+    }
+  },
+  "action": {
+    "default_title": "Activate Findable"
+  },
+  "web_accessible_resources": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "resources": [
+        "**/*",
+        "*"
+      ],
+      "use_dynamic_url": false
+    }
+  ]
+}
