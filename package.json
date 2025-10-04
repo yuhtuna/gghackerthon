@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "VITE_HMR_HOST=$(wget -qO- --header=\"X-Forwarded-Host: 9000-firebase-gghackerthon-1759512927992.cluster-muh7x464abftkrqshm4vshlbtu.cloudworkstations.dev\" \"http://localhost:15000/api/v1/dev-host\") vite",
+    "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"
   },
