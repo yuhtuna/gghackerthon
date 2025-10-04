@@ -11,7 +11,7 @@
 
   const dispatch = createEventDispatcher();
 
-  const handleWindowKeyDown = (event: KeyboardEvent) => {
+  const handleKeyDown = (event: KeyboardEvent) => {
     if (event.key === 'Escape') {
       event.preventDefault();
       dispatch('close');
@@ -26,12 +26,6 @@
       const selectedTab = searchResults[selectedIndex];
       switchToTab(selectedTab?.id);
     }
-  };
-
-  const handleWindowClick = (event: MouseEvent) => {
-      if (barElement && !barElement.contains(event.target as Node)) {
-          dispatch('close');
-      }
   };
 
   const searchTabs = () => {
@@ -61,86 +55,89 @@
 
   onMount(async () => {
     inputElement.focus();
-    window.addEventListener('keydown', handleWindowKeyDown, true);
-    // Use a timeout to prevent the click that opened the bar from immediately closing it
-    setTimeout(() => window.addEventListener('click', handleWindowClick), 0);
-
+    window.addEventListener('keydown', handleKeyDown, true);
     allTabs = await chrome.tabs.query({});
     searchResults = allTabs;
   });
 
   onDestroy(() => {
-    window.removeEventListener('keydown', handleWindowKeyDown, true);
-    window.removeEventListener('click', handleWindowClick);
+    window.removeEventListener('keydown', handleKeyDown, true);
   });
 
   $: searchTabs();
 
 </script>
 
-<div class="findable-bar" bind:this={barElement}>
-    <div class="input-wrapper">
-      <svg class="search-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" /></svg>
-      <input
-        bind:this={inputElement}
-        bind:value={searchTerm}
-        type="text"
-        placeholder="Search tabs..."
-      />
-      <button class="close-button" on:click={() => dispatch('close')}>Done</button>
-    </div>
+<div class="overlay" on:click={() => dispatch('close')}>
+  <div class="findable-container" on:click|stopPropagation>
+      <div class="input-wrapper">
+        <svg class="search-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" /></svg>
+        <input
+          bind:this={inputElement}
+          bind:value={searchTerm}
+          type="text"
+          placeholder="Search tabs..."
+        />
+        <button class="close-button" on:click={() => dispatch('close')}>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+        </button>
+      </div>
 
-    {#if searchResults.length > 0}
-      <div class="results-separator"></div>
-      <ul class="search-results">
-          {#each searchResults as result, i (result.id)}
-            <li class:selected={i === selectedIndex} on:click={() => switchToTab(result.id)} on:mouseenter={() => selectedIndex = i}>
-              <img src={result.favIconUrl || 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs='} alt="Tab favicon" class="favicon" />
-              <div class="tab-info">
-                <span class="title">{result.title}</span>
-                <span class="url">{result.url}</span>
-              </div>
-            </li>
-          {/each}
-      </ul>
-    {/if}
+      {#if searchResults.length > 0}
+        <div class="results-separator"></div>
+        <ul class="search-results">
+            {#each searchResults as result, i (result.id)}
+              <li class:selected={i === selectedIndex} on:click={() => switchToTab(result.id)} on:mouseenter={() => selectedIndex = i}>
+                <img src={result.favIconUrl || 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs='} alt="" class="favicon" />
+                <div class="tab-info">
+                  <span class="title">{result.title}</span>
+                </div>
+              </li>
+            {/each}
+        </ul>
+      {/if}
+  </div>
 </div>
 
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap');
 
-  .findable-bar {
+  .overlay {
     position: fixed;
-    top: 60px;
-    right: 60px;
-    width: 480px;
-    max-height: 500px;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0,0,0,0.35);
+    backdrop-filter: blur(10px) saturate(120%);
+    -webkit-backdrop-filter: blur(10px) saturate(120%);
     display: flex;
-    flex-direction: column;
-    background: rgba(45, 45, 45, 0.6);
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-    font-family: 'Inter', sans-serif;
+    justify-content: center;
+    align-items: flex-start;
     z-index: 2147483647;
-    color: #f0f0f0;
+  }
+
+  .findable-container {
+    width: 600px;
+    margin-top: 20vh;
+    background: rgba(40,40,40,0.7);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
     overflow: hidden;
   }
 
   .input-wrapper {
     display: flex;
     align-items: center;
-    padding: 8px;
-    flex-shrink: 0;
+    padding: 5px 10px 5px 15px;
   }
 
   .search-icon {
-    width: 20px;
-    height: 20px;
-    color: #999;
-    margin: 0 8px 0 10px;
+    width: 18px;
+    height: 18px;
+    color: #777;
+    margin-right: 12px;
   }
 
   input[type="text"] {
@@ -148,96 +145,87 @@
     background: none;
     border: none;
     outline: none;
-    color: #fff;
-    font-size: 1rem;
-    padding: 8px;
-    font-family: 'Inter', sans-serif;
+    color: #eee;
+    font-size: 1.25rem;
+    padding: 15px 0;
+    font-family: inherit;
   }
 
   input::placeholder {
-    color: #888;
+    color: #777;
+  }
+  
+  .close-button {
+      background: transparent;
+      border: none;
+      border-radius: 50%;
+      color: #888;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background-color 0.15s ease;
   }
 
-  .close-button {
-    background: rgba(255,255,255,0.1);
-    border: none;
-    border-radius: 6px;
-    color: #ddd;
-    font-size: 0.8rem;
-    font-weight: 500;
-    padding: 6px 12px;
-    margin-right: 4px;
-    cursor: pointer;
-    transition: background 0.2s;
-  }
   .close-button:hover {
-    background: rgba(255,255,255,0.2);
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+  }
+
+  .close-button svg {
+      width: 16px;
+      height: 16px;
   }
 
   .results-separator {
     height: 1px;
-    background: rgba(255, 255, 255, 0.12);
-    margin: 0 8px;
+    background: rgba(255, 255, 255, 0.1);
   }
 
   .search-results {
     list-style: none;
     margin: 0;
     padding: 8px;
+    max-height: 350px;
     overflow-y: auto;
   }
 
   li {
     display: flex;
     align-items: center;
-    padding: 10px;
-    border-radius: 8px;
-    cursor: pointer;
-    color: #ccc;
-    transition: background-color 0.15s ease, color 0.15s ease;
+    padding: 10px 12px;
+    border-radius: 6px;
+    cursor: default;
+    color: #ddd;
+    transition: background-color 0.1s ease, color 0.1s ease;
   }
 
   li.selected {
-    background: rgba(0, 122, 255, 0.8);
+    background-color: #007aff;
     color: #fff;
   }
 
   .favicon {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
     margin-right: 12px;
     flex-shrink: 0;
   }
 
   .tab-info {
-    display: flex;
-    flex-direction: column;
     overflow: hidden;
-    line-height: 1.3;
   }
 
   .title {
-    font-size: 0.9rem;
-    font-weight: 500;
-    color: inherit; /* Inherits from li */
+    font-size: 0.95rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    line-height: 1.4;
+    color: inherit;
   }
 
-  li.selected .title {
-      color: #fff;
-  }
-
-  .url {
-    font-size: 0.75rem;
-    color: #888;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  li.selected .url {
-      color: rgba(255,255,255,0.7);
-  }
 </style>
