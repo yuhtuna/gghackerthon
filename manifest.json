@@ -4,8 +4,10 @@
   "version": "0.1.0",
   "description": "Everything is findable.",
   "permissions": [
-    "activeTab",
     "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>"
   ],
   "background": {
     "service_worker": "src/background.ts",
@@ -22,17 +24,5 @@
   },
   "action": {
     "default_title": "Activate Findable"
-  },
-  "web_accessible_resources": [
-    {
-      "matches": [
-        "<all_urls>"
-      ],
-      "resources": [
-        "**/*",
-        "*"
-      ],
-      "use_dynamic_url": false
-    }
-  ]
+  }
 }

@@ -1,14 +1,28 @@
+import SearchBar from './SearchBar.svelte';
+
 console.log("✅ Findable content script loaded!");
 
-// This function will be the entry point for all our page-related logic
 function main() {
-  console.log("Findable main() executed.");
-  // Later, this is where we will inject our Svelte UI component.
+  // Prevent the script from injecting the UI multiple times
+  if (document.querySelector('.findable-search-bar-overlay')) {
+    console.log("Findable UI is already on the page.");
+    return;
+  }
+  
+  console.log("Injecting Findable UI.");
+
+  const target = document.createElement('div');
+  document.body.appendChild(target);
+
+  const searchBar = new SearchBar({
+    target: target,
+  });
+
+  // Listen for the 'close' event from the Svelte component
+  searchBar.$on('close', () => {
+    // Clean up the DOM
+    target.remove();
+  });
 }
 
-// Ensure the main function runs only once
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', main);
-} else {
-  main();
-}
+main();

@@ -9,4 +9,10 @@ export default defineConfig({
     svelte(),
     crx({ manifest }),
   ],
+  server: {
+    hmr: {
+      clientPort: 443,
+      host: process.env.VITE_HMR_HOST
+    }
+  }
 })

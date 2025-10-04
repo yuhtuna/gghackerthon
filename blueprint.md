@@ -29,6 +29,10 @@ This section documents all the style, design, and features implemented in the ap
     *   A dedicated **close button ("X")** has been added.
     *   The user can **click the semi-transparent background overlay** to dismiss the search bar.
     *   Pressing the **`Escape` key** will close the search bar.
+*   **Core Search Functionality (Tabs):**
+    *   **Live Search:** The search bar now provides live, as-you-type search results for all open browser tabs.
+    *   **Tab Switching:** Users can click on any search result to instantly switch to that tab.
+    *   **Results Display:** Search results, including each tab's favicon and title, are displayed in a list directly below the search bar.
 
 ### 2.3. UI & Design
 
@@ -43,15 +47,16 @@ The UI follows modern design principles, aiming for a clean, visually balanced, 
 
 *   **`SearchBar.svelte` (Search Component):**
     *   **Layout:**
-        *   A full-screen overlay (`findable-search-bar-overlay`) with a semi-transparent dark background (`rgba(0, 0, 0, 0.5)`) to focus the user's attention.
-        *   The search bar itself is centered horizontally and positioned towards the top of the viewport for easy access.
+        *   A full-screen overlay with a semi-transparent dark background focuses the user's attention.
+        *   The search bar and results are centered horizontally and positioned towards the top of the viewport.
     *   **Aesthetics:**
-        *   **Container:** The search bar has a dark, modern background color (`#2a2a2e`), rounded corners, and a multi-layered drop shadow (`0 10px 30px rgba(0, 0, 0, 0.2)`) to create a sense of depth.
-        *   **Input Field:** The text input is borderless with white text for a clean, integrated look. The font size is enlarged for readability.
-        *   **Close Button:** A subtle "X" button is positioned in the top-right corner for an intuitive closing action.
+        *   **Container:** The search bar has a dark, modern background, rounded corners, and a multi-layered drop shadow.
+        *   **Input Field:** The text input is borderless with white text for a clean, integrated look.
+        *   **Close Button:** A subtle "X" button is positioned in the top-right corner.
+        *   **Search Results:** The results list is styled to match the search bar's aesthetic, with hover effects on individual results.
     *   **Interactivity:**
-        *   The search input field automatically receives focus (`.focus()`) when the component is mounted.
-        *   The component dispatches a `close` event when the user initiates a close action (clicking the "X", the background, or pressing `Escape`). The parent component (`App.svelte`) listens for this event to hide the search bar.
+        *   The search input field automatically receives focus when the component is mounted.
+        *   The component dispatches a `close` event when the user initiates a close action.
 
 ---
 
@@ -59,14 +64,7 @@ The UI follows modern design principles, aiming for a clean, visually balanced, 
 
 This section outlines the plan and steps for the currently requested change.
 
-1.  **Implement Core Search Functionality:**
-    *   **Define Search Scope:** First, we will decide what to search through. I recommend starting with open browser tabs, as it's a common and useful feature.
-    *   **Access Browser APIs:** Use the `chrome.tabs.query` API to get a list of all open tabs in the current window.
-    *   **Filter Logic:** Implement the logic to filter the list of tabs based on the user's `searchTerm`. The search should match against the tab's title and URL.
-    *   **Display Results:** Design and create a UI component to display the search results dynamically beneath the search bar as the user types.
-    *   **Action on Selection:** Implement the functionality to switch to the selected tab when a user clicks on a search result.
-
-2.  **Refine Visual Design & Style:**
-    *   Incorporate iconography (e.g., a search icon in the input field).
-    *   Apply a subtle noise texture to the main background.
-    *   Enhance interactive elements with "glow" effects on focus or hover.
+1.  **Refine Visual Design & Style:**
+    *   **Iconography:** Incorporate a search icon into the search input field to make it more visually intuitive.
+    *   **Background Texture:** Apply a subtle noise texture to the main background of the `App.svelte` component to add a premium, tactile feel.
+    *   **Glow Effects:** Enhance interactive elements like the search results with "glow" effects on hover to provide better visual feedback.

@@ -1,6 +1,8 @@
+// @ts-ignore
+import content from './content.ts?script';
 // Listen for the command we defined in manifest.json
 chrome.commands.onCommand.addListener(async (command) => {
-  console.log(`Command "${command}" triggered`);
+  console.log(`Command \"${command}\" triggered`);
 
   if (command === "open-findable-search") {
     // Get the current active tab
@@ -10,7 +12,7 @@ chrome.commands.onCommand.addListener(async (command) => {
       // Programmatically inject our content script into the active tab
       await chrome.scripting.executeScript({
         target: { tabId: tab.id },
-        files: ['src/content.ts'],
+        files: [content],
       });
     }
   }
