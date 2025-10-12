@@ -1,45 +1,99 @@
 import SearchBar from './SearchBar.svelte';
+import { highlightCategorized, clear, goToNext, goToPrev } from './highlighter';
+import type { SemanticTerms } from './modules/semantic-engine';
+import { searchOptions } from './stores';
+import { get } from 'svelte/store';
+import { debounce } from './modules/utils';
 
-console.log("✅ Findable content script loaded!");
-
-function main() {
-  // Prevent the script from injecting the UI multiple times
-  if (document.querySelector('#findable-extension-root')) {
-    console.log("Findable UI is already on the page.");
+function toggleFindableUI() {
+  const existingRoot = document.querySelector('#findable-extension-root');
+  if (existingRoot) {
+    clear();
+    existingRoot.remove();
     return;
   }
   
-  console.log("Injecting Findable UI.");
-
-  // Create a container with shadow DOM to isolate styles
   const container = document.createElement('div');
   container.id = 'findable-extension-root';
-  container.style.position = 'fixed';
-  container.style.top = '0';
-  container.style.left = '0';
-  container.style.width = '0';
-  container.style.height = '0';
-  container.style.zIndex = '2147483647';
-  
-  // Attach shadow DOM
   const shadowRoot = container.attachShadow({ mode: 'open' });
   
-  // Create target inside shadow DOM
+  const style = document.createElement('style');
+  style.textContent = `
+    ::slotted(mark.findable-highlight-original) { background-color: #fde047; color: #18181b; }
+    ::slotted(mark.findable-highlight-synonym) { background-color: #86efac; color: #14532d; }
+    ::slotted(mark.findable-highlight-antonym) { background-color: #fca5a5; color: #7f1d1d; }
+    ::slotted(mark.findable-highlight-related) { background-color: #93c5fd; color: #1e3a8a; }
+    ::slotted(mark) { 
+      padding: 2px; 
+      border-radius: 3px; 
+      transition: all 0.2s ease;
+      scroll-margin: 50vh; /* Ensures the element is centered when scrolling */
+    }
+    /* --- THE FIX: NEW STYLE FOR THE CURRENT HIGHLIGHT --- */
+    ::slotted(mark.findable-highlight-current) { 
+      background-color: #fb923c; /* Bright Orange */
+      box-shadow: 0 0 0 2px #fb923c;
+      transform: scale(1.05);
+    }
+  `;
+  shadowRoot.appendChild(style);
+
   const target = document.createElement('div');
   shadowRoot.appendChild(target);
-  
-  // Append container to body
   document.body.appendChild(container);
 
-  const searchBar = new SearchBar({
-    target: target,
+  const searchBar = new SearchBar({ target });
+
+  const debouncedSemanticSearch = debounce(async (term: string) => {
+    const options = get(searchOptions);
+    if (!options.synonyms && !options.antonyms && !options.relatedWords) return;
+    
+    const semanticTerms: SemanticTerms = await chrome.runtime.sendMessage({
+      type: 'getSemanticTerms',
+      term: term,
+      options: options
+    });
+
+    if (!semanticTerms) return;
+
+    const termsToHighlight = {
+      original: [semanticTerms.correctedTerm],
+      synonyms: options.synonyms ? semanticTerms.synonyms : [],
+      antonyms: options.antonyms ? semanticTerms.antonyms : [],
+      relatedWords: options.relatedWords ? semanticTerms.relatedWords : [],
+    };
+
+    const total = highlightCategorized(termsToHighlight);
+    searchBar.setResults(total, total > 0 ? 0 : -1);
+  }, 500);
+
+  searchBar.$on('search', (event) => {
+    const { term } = event.detail;
+    clear();
+    searchBar.setResults(0, -1);
+
+    if (term) {
+      const total = highlightCategorized({ original: [term], synonyms: [], antonyms: [], relatedWords: [] });
+      searchBar.setResults(total, total > 0 ? 0 : -1);
+      debouncedSemanticSearch(term);
+    }
+  });
+  
+  searchBar.$on('next', () => {
+    const { current, total } = goToNext();
+    searchBar.setResults(total, current);
   });
 
-  // Listen for the 'close' event from the Svelte component
+  searchBar.$on('prev', () => {
+    const { current, total } = goToPrev();
+    searchBar.setResults(total, current);
+  });
+
   searchBar.$on('close', () => {
-    // Clean up the DOM
+    clear();
     container.remove();
   });
 }
 
-main();
+toggleFindableUI();
+
