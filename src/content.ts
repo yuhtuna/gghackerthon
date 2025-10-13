@@ -69,21 +69,29 @@ function toggleFindableUI() {
     // We only need to check if at least one semantic option is enabled.
     if (!options.synonyms && !options.antonyms && !options.relatedWords) return;
     
-    const semanticTerms: SemanticTerms = await chrome.runtime.sendMessage({
-      type: 'getSemanticTerms',
-      term: term,
-      options: options // Pass all options, engine will decide what to do
-    });
+    // Show loading indicator
+    searchBar.setLoading(true);
+    
+    try {
+      const semanticTerms: SemanticTerms = await chrome.runtime.sendMessage({
+        type: 'getSemanticTerms',
+        term: term,
+        options: options // Pass all options, engine will decide what to do
+      });
 
-    if (!semanticTerms) return;
+      if (!semanticTerms) return;
 
-    const termsToHighlight = {
-      original: [semanticTerms.correctedTerm],
-      semanticMatches: semanticTerms.semanticMatches || [],
-    };
+      const termsToHighlight = {
+        original: [semanticTerms.correctedTerm],
+        semanticMatches: semanticTerms.semanticMatches || [],
+      };
 
-    const total = highlightCategorized(termsToHighlight);
-    searchBar.setResults(total, total > 0 ? 0 : -1);
+      const total = highlightCategorized(termsToHighlight);
+      searchBar.setResults(total, total > 0 ? 0 : -1);
+    } finally {
+      // Hide loading indicator
+      searchBar.setLoading(false);
+    }
   }, 1200); // --- THE FIX: Increased debounce delay to 1.2 seconds ---
 
   searchBar.$on('search', (event) => {

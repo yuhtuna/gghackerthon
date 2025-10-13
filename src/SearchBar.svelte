@@ -8,6 +8,7 @@
   let searchTerm = '';
   let resultCount = 0;
   let currentIndex = -1; // Start at -1 to correctly show "1 / total" on first match
+  let isLoading = false;
 
   let showSettings = false;
 
@@ -17,6 +18,11 @@
   export function setResults(total: number, current: number) {
     resultCount = total;
     currentIndex = current;
+  }
+
+  // Expose a method to set loading state
+  export function setLoading(loading: boolean) {
+    isLoading = loading;
   }
 
   const handleInputKeyDown = (event: KeyboardEvent) => {
@@ -85,12 +91,22 @@
       on:input={handleSubmit}
     />
     
-    <!-- Results Count -->
-    {#if searchTerm && resultCount > 0}
-      <span class="result-count">{currentIndex + 1} / {resultCount}</span>
-    {:else if searchTerm}
-      <span class="result-count">0 / 0</span>
-    {/if}
+    <!-- Status area (Loading Spinner or Results Count) -->
+    <div class="status-area">
+      {#if isLoading}
+        <div class="loading-spinner" title="Searching for semantic matches...">
+          <svg class="spinner" viewBox="0 0 20 20">
+            <circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="25.133" stroke-dashoffset="25.133">
+              <animate attributeName="stroke-dasharray" dur="1.5s" values="0 25.133;12.566 12.566;0 25.133" repeatCount="indefinite"/>
+              <animate attributeName="stroke-dashoffset" dur="1.5s" values="0;-12.566;-25.133" repeatCount="indefinite"/>
+            </svg>
+          </div>
+      {:else if searchTerm && resultCount > 0}
+        <span class="result-count">{currentIndex + 1} / {resultCount}</span>
+      {:else if searchTerm}
+        <span class="result-count">0 / 0</span>
+      {/if}
+    </div>
 
     <!-- Navigation Buttons -->
     <button type="button" class="icon-button" on:click={goToPrev} disabled={resultCount === 0} title="Previous result">
@@ -170,11 +186,34 @@
     color: #777;
   }
 
+  .status-area {
+    width: 60px; /* Fixed width to prevent any layout shifts */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
   .result-count {
     color: #888;
     font-size: 0.8rem;
-    padding: 0 10px;
     user-select: none;
+    text-align: center;
+    width: 100%;
+  }
+
+  .loading-spinner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .spinner {
+    width: 20px;
+  height: 20px;
+    color: #525862ff;
+    flex-shrink: 0;
   }
   
   .icon-button {
