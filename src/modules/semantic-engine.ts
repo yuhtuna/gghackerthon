@@ -2,12 +2,15 @@
 import './ai-types';
 import type { SearchOptions } from '../stores';
 
-// THE FIX: Re-introduce `correctedTerm` to our interface
+// Each term now includes a relevance score
+export interface SemanticTerm {
+  word: string;
+  score: number;
+}
+
 export interface SemanticTerms {
   correctedTerm: string;
-  synonyms: string[];
-  antonyms: string[];
-  relatedWords: string[];
+  semanticMatches: SemanticTerm[];
 }
 
 let session: LanguageModelSession | null = null;
@@ -52,20 +55,19 @@ export async function getSemanticTerms(term: string, options: SearchOptions): Pr
 
   if (!session) {
     await initializeAiSession();
-    if (!session) return { correctedTerm: term, synonyms: [], antonyms: [], relatedWords: [] };
+    if (!session) return { correctedTerm: term, semanticMatches: [] };
   }
 
-  // --- DYNAMIC PROMPT WITH ALWAYS-ON AUTOCORRECT ---
-  const requestedFields = ['"correctedTerm"']; // Always request the corrected term
-  if (options.synonyms) requestedFields.push('"synonyms"');
-  if (options.antonyms) requestedFields.push('"antonyms"');
-  if (options.relatedWords) requestedFields.push('"relatedWords"');
-
-  // The prompt now includes auto-correct as a mandatory first step.
+  // --- UNIFIED PROMPT WITH -1 TO 1 SCORING ---
   const prompt = `
-    For "${term}", provide a JSON object with keys: ${requestedFields.join(", ")}.
+    For "${term}", provide a JSON object with keys: "correctedTerm" and "semanticMatches".
     The "correctedTerm" key is mandatory and should contain the spell-checked version of the input.
-    The other keys should be based on the corrected term.
+    "semanticMatches" should be an array of objects, each with a "word" and a "score" property.
+    The "score" must be a number between -1.0 and 1.0:
+    - A score > 0 indicates a synonym or related word (1.0 is a perfect synonym).
+    - A score < 0 indicates an antonym or opposite concept (-1.0 is a direct antonym).
+    - A score of 0 is a neutral or unrelated term.
+    Base the matches on the corrected term. Provide 5-10 semantically related words.
     Respond with ONLY the raw JSON.
   `;
 
@@ -77,11 +79,8 @@ export async function getSemanticTerms(term: string, options: SearchOptions): Pr
     if (!parsedResponse) throw new Error("JSON parsing failed.");
     
     const result: SemanticTerms = {
-      // Ensure we always have a corrected term, falling back to the original
       correctedTerm: parsedResponse.correctedTerm || term,
-      synonyms: parsedResponse.synonyms || [],
-      antonyms: parsedResponse.antonyms || [],
-      relatedWords: parsedResponse.relatedWords || [],
+      semanticMatches: parsedResponse.semanticMatches || [],
     };
     
     sessionCache.set(cacheKey, result);
@@ -89,7 +88,7 @@ export async function getSemanticTerms(term: string, options: SearchOptions): Pr
 
   } catch (error) {
     console.error("Error processing AI response:", error);
-    return { correctedTerm: term, synonyms: [], antonyms: [], relatedWords: [] };
+    return { correctedTerm: term, semanticMatches: [] };
   }
 }
 

@@ -14,18 +14,22 @@ let currentIndex = -1;
 
 interface TermGroup {
   original: string[];
-  synonyms: string[];
-  antonyms: string[];
-  relatedWords: string[];
+  semanticMatches: { word: string; score: number }[];
 }
 
 export function highlightCategorized(terms: TermGroup): number {
   clear();
 
-  highlightTermList(terms.original, HIGHLIGHT_CLASSES.original);
-  highlightTermList(terms.synonyms, HIGHLIGHT_CLASSES.synonym);
-  highlightTermList(terms.antonyms, HIGHLIGHT_CLASSES.antonym);
-  highlightTermList(terms.relatedWords, HIGHLIGHT_CLASSES.related);
+  // Highlight original term in yellow
+  highlightTermList(terms.original.map(word => ({ word, score: 1.0 })), HIGHLIGHT_CLASSES.original);
+  
+  // Separate semantic matches based on score
+  const synonyms = (terms.semanticMatches || []).filter(t => t.score > 0);
+  const antonyms = (terms.semanticMatches || []).filter(t => t.score < 0);
+
+  // Highlight synonyms in green and antonyms in red
+  highlightTermList(synonyms, HIGHLIGHT_CLASSES.synonym);
+  highlightTermList(antonyms, HIGHLIGHT_CLASSES.antonym);
   
   highlights = Array.from(document.querySelectorAll(`mark[class*="findable-highlight-"]`)) as HTMLElement[];
   highlights.sort((a, b) => a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1);
@@ -39,12 +43,12 @@ export function highlightCategorized(terms: TermGroup): number {
   return highlights.length;
 }
 
-function highlightTermList(termList: string[], className: string) {
-    const validTerms = termList ? termList.filter(term => typeof term === 'string' && term.trim() !== '') : [];
+function highlightTermList(termList: { word: string; score: number }[], className: string) {
+    const validTerms = termList ? termList.filter(term => typeof term.word === 'string' && term.word.trim() !== '') : [];
     if (validTerms.length === 0) return;
 
-    const escapedTerms = validTerms.map(term => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-    const regexPattern = `\\b(${escapedTerms.join('|')})\\b`;
+    const escapedTerms = validTerms.map(term => term.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const regexPattern = `(${escapedTerms.join('|')})`;
   
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
       acceptNode: (node: Text) => {
@@ -62,25 +66,39 @@ function highlightTermList(termList: string[], className: string) {
     }
   
     nodesToProcess.forEach(node => {
-      const parent = node.parentNode;
-      if (!parent) return;
+      const text = node.nodeValue;
+      if (!text) return;
   
-      const splitRegex = new RegExp(regexPattern, 'gi');
-      const parts = node.textContent?.split(splitRegex);
+      const regex = new RegExp(regexPattern, 'gi');
+      let match;
+      const fragments = document.createDocumentFragment();
+      let lastIndex = 0;
   
-      if (parts && parts.length > 1) {
-        const fragment = document.createDocumentFragment();
-        parts.forEach((part, index) => {
-          if (index % 2 === 1) {
-            const mark = document.createElement('mark');
-            mark.className = className;
-            mark.textContent = part;
-            fragment.appendChild(mark);
-          } else if (part) {
-            fragment.appendChild(document.createTextNode(part));
-          }
-        });
-        parent.replaceChild(fragment, node);
+      while ((match = regex.exec(text)) !== null) {
+        if (match.index > lastIndex) {
+          fragments.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+        }
+        
+        const matchedWord = match[0];
+        const termData = validTerms.find(t => t.word.toLowerCase() === matchedWord.toLowerCase());
+        // Use absolute value of score for intensity (both +0.8 and -0.8 should be intense)
+        const score = termData ? Math.abs(termData.score) : 1.0;
+
+        const mark = document.createElement('mark');
+        mark.textContent = matchedWord;
+        mark.className = className;
+        mark.style.setProperty('--highlight-intensity', score.toString());
+        fragments.appendChild(mark);
+  
+        lastIndex = regex.lastIndex;
+      }
+  
+      if (lastIndex < text.length) {
+        fragments.appendChild(document.createTextNode(text.slice(lastIndex)));
+      }
+  
+      if (fragments.childNodes.length > 1) {
+        node.parentNode?.replaceChild(fragments, node);
       }
     });
 }
@@ -99,7 +117,6 @@ export function goToPrev(): { current: number; total: number } {
   return { current: currentIndex, total: highlights.length };
 }
 
-// --- THE FIX: This function now manages the current highlight style ---
 function updateCurrentHighlight() {
   // First, remove the 'current' class from all highlights
   highlights.forEach(h => {
@@ -120,8 +137,10 @@ function updateCurrentHighlight() {
 }
 
 export function clear() {
-  const allHighlights = document.querySelectorAll('mark[class*="findable-highlight-"]');
-  allHighlights.forEach(mark => {
+  highlights.forEach(h => h.classList.remove(CURRENT_HIGHLIGHT_CLASS));
+  
+  const marks = document.querySelectorAll(`mark[class*="findable-highlight-"]`);
+  marks.forEach(mark => {
     const parent = mark.parentNode;
     if (parent) {
       parent.replaceChild(document.createTextNode(mark.textContent || ''), mark);
@@ -131,4 +150,3 @@ export function clear() {
   highlights = [];
   currentIndex = -1;
 }
-
