@@ -15,8 +15,8 @@
 
 <div class="popup-container">
   <div class="header">
-    <img src="/logo.png" alt="Findable Logo" class="logo"/>
-    <h2>Findable Settings</h2>
+    <span class="logo">🔬</span>
+    <h2>WebNano Assistant</h2>
   </div>
 
   <div class="settings-grid">

@@ -1,20 +1,19 @@
 // src/background.ts
 import './modules/ai-types';
 import { getSemanticTerms, initializeAiSession } from './modules/semantic-engine';
-import contentScript from './content?script';
 
 // AI Session Pre-warming
 chrome.runtime.onStartup.addListener(() => initializeAiSession());
 chrome.runtime.onInstalled.addListener(() => initializeAiSession());
 
-// Inject UI on command
+// Toggle chat on command
 chrome.commands.onCommand.addListener(async (command) => {
-  if (command !== "open-findable-search") return;
+  if (command !== "open-webnano-assistant") return;
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (tab?.id && tab.url && !tab.url.startsWith('chrome://')) {
-    chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      files: [contentScript],
+    // Send message to content script to toggle chat
+    chrome.tabs.sendMessage(tab.id, { type: 'toggle-chat' }).catch(() => {
+      // Content script might not be loaded yet, ignore error
     });
   }
 });

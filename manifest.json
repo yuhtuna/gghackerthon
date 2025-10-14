@@ -1,12 +1,14 @@
 {
   "manifest_version": 3,
-  "name": "Findable",
+  "name": "WebNano",
   "version": "0.1.0",
-  "description": "Everything is findable.",
+  "description": "Your intelligent web assistant. Find, analyze, and interact with any webpage.",
   "permissions": [
     "storage",
     "scripting",
-    "activeTab"
+    "activeTab",
+    "contextMenus",
+    "tabs"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -16,17 +18,25 @@
     "type": "module"
   },
   "commands": {
-    "open-findable-search": {
+    "open-webnano-assistant": {
       "suggested_key": {
         "default": "Ctrl+Shift+F",
         "mac": "Command+Shift+F"
       },
-      "description": "Open the Findable search bar"
+      "description": "Open WebNano Assistant"
     }
   },
   "action": {
     "default_popup": "src/popup/popup.html",
-    "default_title": "Findable Settings"
-  }
+    "default_title": "WebNano Assistant"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content.ts"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ]
 }
 
