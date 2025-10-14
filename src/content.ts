@@ -11,10 +11,11 @@ function initWebNanoUI() {
   // Create container directly in document (not shadow DOM) so position:fixed works
   const container = document.createElement('div');
   container.id = 'webnano-extension-root';
-  // Allow all pointer events to pass through to the app
-  container.style.cssText = 'all: initial; position: fixed; inset: 0; z-index: 2147483647;';
+  // Allow all pointer events to pass through to the website (only children with pointer-events:auto will be clickable)
+  container.style.cssText = 'all: initial; position: fixed; inset: 0; pointer-events: none; z-index: 2147483647;';
   
   const target = document.createElement('div');
+  target.style.cssText = 'width: 100%; height: 100%; pointer-events: none;';
   container.appendChild(target);
 
   appInstance = new App({ target });

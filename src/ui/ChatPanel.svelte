@@ -213,32 +213,37 @@ Be helpful, concise, and professional.`
     display: flex;
     width: 100%;
     height: 100%;
-    background: transparent;
-    color: #fff;
-    font-family: system-ui, -apple-system, sans-serif;
+    background: #0a0a0a;
+    color: #e0e0e0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
     box-sizing: border-box;
+    border-radius: 16px;
+    overflow: hidden;
+    backdrop-filter: blur(20px);
   }
   
   * {
     box-sizing: border-box;
   }
   .chat-sidebar {
-    width: 260px;
-    background: #23232b;
-    padding: 20px 12px;
-    border-right: 1px solid #222;
+    width: 200px;
+    background: linear-gradient(180deg, #0f0f0f 0%, #050505 100%);
+    padding: 20px 14px;
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: 16px;
   }
   
   h3 {
     all: initial;
-    font-family: system-ui, -apple-system, sans-serif;
-    font-size: 18px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    font-size: 11px;
     font-weight: 600;
-    color: #fff;
-    margin: 0 0 8px 0;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin: 0 0 12px 0;
   }
   
   ul {
@@ -251,16 +256,36 @@ Be helpful, concise, and professional.`
   
   li {
     all: initial;
-    display: block;
-    color: #fff;
-    font-family: system-ui, -apple-system, sans-serif;
-    font-size: 14px;
-    padding: 6px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: #b0b0b0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    font-size: 13px;
+    padding: 8px 12px;
+    margin-bottom: 4px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+    transition: background 0.2s;
+  }
+  
+  li:hover {
+    background: rgba(255, 255, 255, 0.06);
+  }
+  
+  li button {
+    color: #666;
+    padding: 2px 6px;
+    font-size: 12px;
+  }
+  
+  li button:hover {
+    color: #ff4444;
   }
   
   button {
     all: initial;
-    font-family: system-ui, -apple-system, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
     cursor: pointer;
     border: none;
     outline: none;
@@ -269,128 +294,182 @@ Be helpful, concise, and professional.`
   
   input {
     all: initial;
-    font-family: system-ui, -apple-system, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
     outline: none;
     border: none;
     display: block;
   }
   .context-section {
-    margin-bottom: 18px;
+    margin-bottom: 16px;
   }
   .context-title {
-    font-size: 14px;
+    font-size: 11px;
     font-weight: 600;
-    margin-bottom: 6px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
   }
   .add-btn {
     margin-top: 8px;
-    background: #2d8cff;
-    color: #fff;
-    border: none;
-    border-radius: 6px;
-    padding: 4px 10px;
+    background: rgba(255, 255, 255, 0.05);
+    color: #888;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 8px 12px;
     cursor: pointer;
-    font-size: 13px;
+    font-size: 12px;
+    width: 100%;
+    text-align: center;
+    transition: all 0.2s;
+  }
+  
+  .add-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.15);
   }
   .chat-main {
     flex: 1;
     display: flex;
     flex-direction: column;
     height: 100%;
+    background: #000;
   }
   .chat-history {
     flex: 1;
     overflow-y: auto;
-    padding: 24px 32px 12px 32px;
+    padding: 20px 18px 12px 18px;
     display: flex;
     flex-direction: column;
     gap: 16px;
   }
+  
+  .chat-history::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .chat-history::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .chat-history::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+  }
+  
+  .chat-history::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.15);
+  }
+  
   .chat-msg {
-    max-width: 70%;
-    padding: 12px 16px;
-    border-radius: 12px;
-    margin-bottom: 4px;
-    font-size: 15px;
-    line-height: 1.5;
+    max-width: 75%;
+    padding: 14px 18px;
+    border-radius: 16px;
+    font-size: 14px;
+    line-height: 1.6;
     word-break: break-word;
   }
   .chat-msg.user {
     align-self: flex-end;
-    background: linear-gradient(90deg, #4f9cf9 0%, #9c88ff 100%);
+    background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
     color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   }
   .chat-msg.assistant {
     align-self: flex-start;
-    background: #23232b;
-    color: #fff;
-    border: 1px solid #333;
+    background: rgba(255, 255, 255, 0.03);
+    color: #e0e0e0;
+    border: 1px solid rgba(255, 255, 255, 0.08);
   }
   .chat-msg.loading {
     font-style: italic;
-    opacity: 0.7;
+    opacity: 0.6;
+    color: #888;
   }
   .chat-input-row {
     display: flex;
     align-items: center;
-    padding: 16px 32px;
-    border-top: 1px solid #222;
-    background: #1a1a1f;
-    gap: 8px;
+    padding: 16px 18px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background: linear-gradient(180deg, #0a0a0a 0%, #000 100%);
+    gap: 10px;
   }
   .chat-input {
     flex: 1;
-    padding: 12px 16px;
-    border-radius: 8px;
-    border: 1px solid #333;
-    background: #23232b;
+    padding: 14px 18px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.03);
     color: #fff;
-    font-size: 15px;
+    font-size: 14px;
     outline: none;
+    transition: all 0.2s;
   }
+  
+  .chat-input:focus {
+    border-color: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.05);
+  }
+  
+  .chat-input::placeholder {
+    color: #555;
+  }
+  
   .file-btn, .send-btn {
-    background: #2d8cff;
-    color: #fff;
-    border: none;
-    border-radius: 8px;
-    padding: 8px 12px;
-    font-size: 18px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #ccc;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 16px;
     cursor: pointer;
-    transition: background 0.2s;
+    transition: all 0.2s;
   }
   .file-btn:hover, .send-btn:hover {
-    background: #1a6ed8;
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: #fff;
+    transform: translateY(-1px);
   }
   .file-btn:disabled, .send-btn:disabled {
-    opacity: 0.5;
+    opacity: 0.3;
     cursor: not-allowed;
+    transform: none;
   }
   .quick-actions {
     display: flex;
-    gap: 8px;
-    padding: 12px 0;
+    gap: 10px;
+    padding: 16px 0;
     flex-wrap: wrap;
   }
   .quick-btn {
     all: initial;
-    font-family: system-ui, -apple-system, sans-serif;
-    padding: 8px 16px;
-    background: #2d2d35;
-    color: #fff;
-    border: 1px solid #444;
-    border-radius: 20px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    padding: 10px 18px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #b0b0b0;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 24px;
     font-size: 13px;
+    font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s;
-    display: inline-block;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
   }
   .quick-btn:hover {
-    background: #3d3d45;
-    border-color: #555;
-    transform: translateY(-1px);
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: #fff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
   }
   .msg-content {
     white-space: pre-wrap;
-    line-height: 1.6;
+    line-height: 1.7;
+    letter-spacing: 0.2px;
   }
 </style>
