@@ -3,7 +3,8 @@
 // Simplified class names for the new 3-mode system
 const HIGHLIGHT_CLASSES = {
   original: 'findable-highlight-original',
-  semantic: 'findable-highlight-semantic', 
+  semantic: 'findable-highlight-semantic',
+  sentence: 'findable-highlight-sentence', // For descriptive matches
 };
 const CURRENT_HIGHLIGHT_CLASS = 'findable-highlight-current';
 
@@ -18,8 +19,12 @@ interface TermGroup {
 export function highlightCategorized(terms: TermGroup): number {
   clear();
 
-  // Highlight original term (yellow)
-  highlightTermList(terms.original.map(word => ({ word, score: 1.0 })), HIGHLIGHT_CLASSES.original);
+  // Highlight original term (yellow) or sentences (blue)
+  if (terms.original.some(t => t.includes(' '))) { // Simple check for sentences
+    highlightTermList(terms.original.map(word => ({ word, score: 1.0 })), HIGHLIGHT_CLASSES.sentence);
+  } else {
+    highlightTermList(terms.original.map(word => ({ word, score: 1.0 })), HIGHLIGHT_CLASSES.original);
+  }
   
   // Highlight semantic matches (green)
   highlightTermList(terms.semanticMatches || [], HIGHLIGHT_CLASSES.semantic);
@@ -43,58 +48,59 @@ function highlightTermList(termList: { word: string; score: number }[], classNam
     const regexPattern = `(${escapedTerms.join('|')})`;
     const regex = new RegExp(regexPattern, 'gi');
 
-    // --- THE FIX: We now look for ELEMENT nodes, not just TEXT nodes ---
-    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT, {
-      acceptNode: (node: Element) => {
-        // Filter out our own UI, scripts, and styles.
-        if (node.closest('#findable-extension-root') || ['SCRIPT', 'STYLE', 'NOSCRIPT'].includes(node.tagName)) {
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+      acceptNode: (node: Text) => {
+        if (node.parentElement?.closest('#findable-extension-root') || 
+            ['SCRIPT', 'STYLE', 'NOSCRIPT'].includes(node.parentElement?.tagName || '')) {
           return NodeFilter.FILTER_REJECT;
         }
-        // Check if the element's direct text content contains a match.
-        // We only check for child nodes that are text nodes to be efficient.
-        for (const child of Array.from(node.childNodes)) {
-            if (child.nodeType === Node.TEXT_NODE && regex.test(child.nodeValue || '')) {
-                return NodeFilter.FILTER_ACCEPT;
-            }
+        if (regex.test(node.nodeValue || '')) {
+          return NodeFilter.FILTER_ACCEPT;
         }
         return NodeFilter.FILTER_REJECT;
       }
     });
   
-    const nodesToProcess: Node[] = [];
+    const nodesToProcess: Text[] = [];
     while (walker.nextNode()) {
-      nodesToProcess.push(walker.currentNode);
+      nodesToProcess.push(walker.currentNode as Text);
     }
   
-    // --- THE FIX: The highlighting logic now handles element children ---
     nodesToProcess.forEach(node => {
-        const childNodes = Array.from(node.childNodes);
-        childNodes.forEach(child => {
-            if (child.nodeType !== Node.TEXT_NODE || !child.nodeValue) return;
+      const text = node.nodeValue;
+      if (!text) return;
+  
+      const fragment = document.createDocumentFragment();
+      let lastIndex = 0;
+  
+      while (true) {
+        const match = regex.exec(text);
+        if (!match) break;
 
-            const text = child.nodeValue;
-            if (!regex.test(text)) return;
+        if (match.index > lastIndex) {
+          fragment.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+        }
 
-            const fragment = document.createDocumentFragment();
-            const parts = text.split(regex);
+        const matchedWord = match[0];
+        const termData = validTerms.find(t => t.word.toLowerCase() === matchedWord.toLowerCase());
+        const score = termData ? Math.abs(termData.score) : 1.0;
 
-            parts.forEach((part, index) => {
-                if (index % 2 === 1) { // This is a matched part
-                    const matchedWord = part;
-                    const termData = validTerms.find(t => t.word.toLowerCase() === matchedWord.toLowerCase());
-                    const score = termData ? Math.abs(termData.score) : 1.0;
+        const mark = document.createElement('mark');
+        mark.textContent = matchedWord;
+        mark.className = className;
+        mark.style.setProperty('--highlight-intensity', score.toString());
+        fragment.appendChild(mark);
 
-                    const mark = document.createElement('mark');
-                    mark.textContent = matchedWord;
-                    mark.className = className;
-                    mark.style.setProperty('--highlight-intensity', score.toString());
-                    fragment.appendChild(mark);
-                } else if (part) {
-                    fragment.appendChild(document.createTextNode(part));
-                }
-            });
-            node.replaceChild(fragment, child);
-        });
+        lastIndex = regex.lastIndex;
+      }
+
+      if (lastIndex < text.length) {
+        fragment.appendChild(document.createTextNode(text.slice(lastIndex)));
+      }
+      
+      if (fragment.childNodes.length > 0) {
+        node.parentNode?.replaceChild(fragment, node);
+      }
     });
 }
 

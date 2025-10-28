@@ -43,8 +43,8 @@ function parseJsonResponse(raw: string): Partial<SemanticTerms> | null {
   }
 }
 
-export async function getSemanticTerms(term: string): Promise<SemanticTerms> {
-  const cacheKey = term;
+export async function getSemanticTerms(term: string, pageContent: string, options?: { signal: AbortSignal }): Promise<SemanticTerms> {
+  const cacheKey = `${term}-${pageContent.substring(0, 500)}`; // Create a more robust cache key
   if (sessionCache.has(cacheKey)) {
     return sessionCache.get(cacheKey)!;
   }
@@ -54,18 +54,24 @@ export async function getSemanticTerms(term: string): Promise<SemanticTerms> {
     if (!session) return { correctedTerm: term, semanticMatches: [] };
   }
 
-  // --- SIMPLIFIED PROMPT ---
+  // --- REVISED, CONTEXT-AWARE PROMPT ---
   const prompt = `
-    For "${term}", provide a JSON object with keys: "correctedTerm" and "semanticMatches".
-    "correctedTerm" should be the spell-checked version of the input.
-    "semanticMatches" should be an array of objects, each with a "word" and a "score".
-    The "score" must be a number between 0.0 and 1.0, indicating how similar the word is to the corrected term (1.0 is a perfect synonym).
-    Provide 5-10 relevant words.
+    Analyze the following text content from a webpage:
+    ---
+    ${pageContent.substring(0, 4000)} 
+    ---
+    Based on the text above, for the search term "${term}", provide a JSON object with keys: "correctedTerm" and "semanticMatches".
+    "correctedTerm" should be the spell-checked version of the input term.
+    "semanticMatches" should be an array of objects. Each object must have a "word" (a synonym, alternative form, or highly related term for "${term}" that is ACTUALLY PRESENT in the provided text) and a "score" (a number between 0.0 and 1.0 indicating relevance).
+    Only include words that are found in the text.
     Respond with ONLY the raw JSON.
   `;
 
+  console.log('--- AI PROMPT (getSemanticTerms) ---', prompt);
+
   try {
-    const aiResponseString = await session.prompt(prompt);
+    const aiResponseString = await session.prompt(prompt, options);
+    console.log('--- AI RESPONSE (getSemanticTerms) ---', aiResponseString);
     const parsedResponse = parseJsonResponse(aiResponseString);
     if (!parsedResponse) throw new Error("JSON parsing failed.");
     
@@ -80,5 +86,34 @@ export async function getSemanticTerms(term: string): Promise<SemanticTerms> {
   } catch (error) {
     console.error("Error processing AI response:", error);
     return { correctedTerm: term, semanticMatches: [] };
+  }
+}
+
+export async function getDescriptiveMatches(textChunk: string, description: string, options?: { signal: AbortSignal }): Promise<string[]> {
+  if (!session) {
+    await initializeAiSession();
+    if (!session) return [];
+  }
+
+  const prompt = `
+    Analyze the following text:
+    ---
+    ${textChunk}
+    ---
+    Now, find all sentences from the text that match this description: "${description}".
+    Return a JSON object with a single key, "matches", which is an array of the full sentence strings that you found.
+    Respond with ONLY the raw JSON.
+  `;
+
+  console.log('--- AI PROMPT (getDescriptiveMatches) ---', prompt);
+
+  try {
+    const aiResponseString = await session.prompt(prompt, options);
+    console.log('--- AI RESPONSE (getDescriptiveMatches) ---', aiResponseString);
+    const parsedResponse = JSON.parse(aiResponseString.replace(/```json|```/g, ''));
+    return parsedResponse.matches || [];
+  } catch (error) {
+    console.error("Error getting descriptive matches:", error);
+    return [];
   }
 }
