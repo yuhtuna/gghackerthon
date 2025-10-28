@@ -1,7 +1,7 @@
 import SearchBar from './SearchBar.svelte';
 import { highlightCategorized, clear, goToNext, goToPrev } from './highlighter';
 import type { SemanticTerms } from './modules/semantic-engine';
-import { searchOptions } from './stores';
+import { appSettings } from './stores';
 import { get } from 'svelte/store';
 import { debounce } from './modules/utils';
 
@@ -17,46 +17,16 @@ function toggleFindableUI() {
   container.id = 'findable-extension-root';
   const shadowRoot = container.attachShadow({ mode: 'open' });
   
-  // Add global styles for highlights to the document head
+  // Styles are simplified as we no longer need an antonym color
   const globalStyle = document.createElement('style');
   globalStyle.id = 'findable-highlight-styles';
   globalStyle.textContent = `
-    /* Base colors are now defined with RGB values for opacity manipulation */
-    mark.findable-highlight-original { background-color: rgba(253, 224, 71, var(--highlight-intensity, 0.5)) !important; color: #18181b !important; }
-    mark.findable-highlight-synonym { background-color: rgba(134, 239, 172, var(--highlight-intensity, 0.5)) !important; color: #14532d !important; }
-    mark.findable-highlight-antonym { background-color: rgba(252, 165, 165, var(--highlight-intensity, 0.5)) !important; color: #7f1d1d !important; }
-    mark.findable-highlight-related { background-color: rgba(147, 197, 253, var(--highlight-intensity, 0.5)) !important; color: #1e3a8a !important; }
-    mark[class*="findable-highlight-"] { 
-      padding: 2px !important; 
-      border-radius: 3px !important; 
-      transition: all 0.2s ease !important;
-      scroll-margin: 50vh !important; /* Ensures the element is centered when scrolling */
-      /* Default intensity if not set */
-      --highlight-intensity: 0.5;
-    }
-    /* Current highlight styling */
-    mark.findable-highlight-current { 
-      background-color: #60a5fa !important; /* Bright Blue */
-      box-shadow: 0 0 0 2px #60a5fa !important;
-      transform: scale(1.05) !important;
-    }
+    mark.findable-highlight-original { background-color: rgba(253, 224, 71, 0.7) !important; color: #18181b !important; }
+    mark.findable-highlight-semantic { background-color: rgba(134, 239, 172, var(--highlight-intensity, 0.5)) !important; color: #14532d !important; }
+    mark[class*="findable-highlight-"] { padding: 2px !important; border-radius: 3px !important; scroll-margin: 50vh !important; }
+    mark.findable-highlight-current { box-shadow: 0 0 0 2px #60a5fa !important; background-color: #60a5fa !important; }
   `;
-  
-  // Remove existing styles if any
-  const existingStyles = document.getElementById('findable-highlight-styles');
-  if (existingStyles) {
-    existingStyles.remove();
-  }
   document.head.appendChild(globalStyle);
-  
-  const style = document.createElement('style');
-  style.textContent = `
-    /* Styles for the search bar UI inside shadow DOM */
-    .search-container {
-      /* Add any shadow DOM specific styles here */
-    }
-  `;
-  shadowRoot.appendChild(style);
 
   const target = document.createElement('div');
   shadowRoot.appendChild(target);
@@ -64,47 +34,61 @@ function toggleFindableUI() {
 
   const searchBar = new SearchBar({ target });
 
-  const debouncedSemanticSearch = debounce(async (term: string) => {
-    const options = get(searchOptions);
-    // We only need to check if at least one semantic option is enabled.
-    if (!options.synonyms && !options.antonyms && !options.relatedWords) return;
-    
-    // Show loading indicator
+  let smartResults: SemanticTerms | null = null;
+
+  const predictiveSmartSearch = debounce(async (term: string) => {
     searchBar.setLoading(true);
-    
-    try {
-      const semanticTerms: SemanticTerms = await chrome.runtime.sendMessage({
-        type: 'getSemanticTerms',
-        term: term,
-        options: options // Pass all options, engine will decide what to do
-      });
-
-      if (!semanticTerms) return;
-
-      const termsToHighlight = {
-        original: [semanticTerms.correctedTerm],
-        semanticMatches: semanticTerms.semanticMatches || [],
-      };
-
-      const total = highlightCategorized(termsToHighlight);
-      searchBar.setResults(total, total > 0 ? 0 : -1);
-    } finally {
-      // Hide loading indicator
-      searchBar.setLoading(false);
-    }
-  }, 1200); // --- THE FIX: Increased debounce delay to 1.2 seconds ---
+    const results = await chrome.runtime.sendMessage({ type: 'getSemanticTerms', term });
+    smartResults = results;
+    searchBar.setSmartState('ready'); // Notify UI that smart results are ready
+  }, 800);
 
   searchBar.$on('search', (event) => {
     const { term } = event.detail;
+    const mode = get(appSettings).searchMode;
+    
     clear();
-    searchBar.setResults(0, -1);
+    smartResults = null;
+    searchBar.setSmartState('idle');
+    searchBar.setLoading(false);
 
-    if (term) {
-      // Initial highlight of just the searched term
+    if (!term) {
+      searchBar.setResults(0, -1);
+      return;
+    }
+
+    // Mode 1: Standard Find (No AI)
+    if (mode === 'find') {
       const total = highlightCategorized({ original: [term], semanticMatches: [] });
       searchBar.setResults(total, total > 0 ? 0 : -1);
-      debouncedSemanticSearch(term);
     }
+    
+    // Mode 2: Basic AI (Predictive Fetch)
+    if (mode === 'basic') {
+      const total = highlightCategorized({ original: [term], semanticMatches: [] });
+      searchBar.setResults(total, total > 0 ? 0 : -1);
+      predictiveSmartSearch(term);
+    }
+    
+    // Mode 3: Deep Scan (Placeholder for now)
+    if (mode === 'deep') {
+      // For now, it will behave like 'basic'. This is where you'd add the chunking logic.
+      const total = highlightCategorized({ original: [term], semanticMatches: [] });
+      searchBar.setResults(total, total > 0 ? 0 : -1);
+      predictiveSmartSearch(term); // Re-using predictive search for now
+    }
+  });
+
+  searchBar.$on('apply_smart_results', () => {
+    if (!smartResults) return;
+    
+    clear();
+    const total = highlightCategorized({
+      original: [smartResults.correctedTerm],
+      semanticMatches: smartResults.semanticMatches,
+    });
+    searchBar.setResults(total, total > 0 ? 0 : -1);
+    searchBar.setSmartState('idle');
   });
   
   searchBar.$on('next', () => {
@@ -117,13 +101,9 @@ function toggleFindableUI() {
     searchBar.setResults(total, current);
   });
 
-  searchBar.$on('close', a => {
+  searchBar.$on('close', () => {
     clear();
-    // Remove global styles
-    const existingStyles = document.getElementById('findable-highlight-styles');
-    if (existingStyles) {
-      existingStyles.remove();
-    }
+    globalStyle.remove();
     container.remove();
   });
 }

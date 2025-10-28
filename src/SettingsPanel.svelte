@@ -1,159 +1,66 @@
-<!-- src/SettingsPanel.svelte -->
 <script lang="ts">
-  import { searchOptions } from './stores';
+  import { appSettings, type SearchMode } from './stores';
 
-  const toggleOption = (option: keyof typeof $searchOptions) => {
-    searchOptions.update(options => ({
-      ...options,
-      [option]: !options[option]
-    }));
+  const setMode = (mode: SearchMode) => {
+    appSettings.update(settings => ({ ...settings, searchMode: mode }));
+  };
+
+  const descriptions = {
+    find: 'A standard, instant search for the exact text you type.',
+    basic: 'Finds your term plus synonyms and related words in the background.',
+    deep: 'Full page analysis for context, descriptions, and summaries. (Slower)',
   };
 </script>
 
 <div class="settings-panel">
-  <div class="settings-grid">
-    <!-- Synonyms -->
-    <div class="setting-item">
-      <label for="synonyms-toggle" class="setting-label">
-        <span class="label-text">Synonyms</span>
-        <span class="label-description">Find words with similar meanings.</span>
-      </label>
-      <button
-        id="synonyms-toggle"
-        role="switch"
-        aria-checked={$searchOptions.synonyms}
-        class="toggle-switch"
-        class:active={$searchOptions.synonyms}
-        on:click={() => toggleOption('synonyms')}
-      >
-        <span class="toggle-slider"></span>
-      </button>
-    </div>
-
-    <!-- Antonyms -->
-    <div class="setting-item">
-      <label for="antonyms-toggle" class="setting-label">
-        <span class="label-text">Antonyms</span>
-        <span class="label-description">Find words with opposite meanings.</span>
-      </label>
-      <button
-        id="antonyms-toggle"
-        role="switch"
-        aria-checked={$searchOptions.antonyms}
-        class="toggle-switch"
-        class:active={$searchOptions.antonyms}
-        on:click={() => toggleOption('antonyms')}
-      >
-        <span class="toggle-slider"></span>
-      </button>
-    </div>
-
-    <!-- Related Words -->
-    <div class="setting-item">
-      <label for="related-words-toggle" class="setting-label">
-        <span class="label-text">Related Words</span>
-        <span class="label-description">Find conceptually related terms.</span>
-      </label>
-      <button
-        id="related-words-toggle"
-        role="switch"
-        aria-checked={$searchOptions.relatedWords}
-        class="toggle-switch"
-        class:active={$searchOptions.relatedWords}
-        on:click={() => toggleOption('relatedWords')}
-      >
-        <span class="toggle-slider"></span>
-      </button>
-    </div>
-
-    <!-- Image Search -->
-    <div class="setting-item">
-      <label for="image-search-toggle" class="setting-label">
-        <span class="label-text">Image Search</span>
-        <span class="label-description">Analyze and search content within images.</span>
-      </label>
-      <button
-        id="image-search-toggle"
-        role="switch"
-        aria-checked={$searchOptions.imageSearch}
-        class="toggle-switch"
-        class:active={$searchOptions.imageSearch}
-        on:click={() => toggleOption('imageSearch')}
-      >
-        <span class="toggle-slider"></span>
-      </button>
-    </div>
+  <div class="mode-selector">
+    <button class="mode-button" class:active={$appSettings.searchMode === 'find'} on:click={() => setMode('find')}>
+      Find
+    </button>
+    <button class="mode-button" class:active={$appSettings.searchMode === 'basic'} on:click={() => setMode('basic')}>
+      Basic
+    </button>
+    <button class="mode-button" class:active={$appSettings.searchMode === 'deep'} on:click={() => setMode('deep')}>
+      Deep
+    </button>
   </div>
+  <p class="mode-description">{descriptions[$appSettings.searchMode]}</p>
 </div>
 
 <style>
   .settings-panel {
-    padding: 10px 20px 20px;
+    padding: 15px 20px;
     border-top: 1px solid rgba(255, 255, 255, 0.1);
-    background: rgba(30, 30, 30, 0.6);
   }
-
-  .settings-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-  }
-
-  .setting-item {
+  .mode-selector {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    background-color: rgba(0,0,0,0.2);
+    border-radius: 8px;
+    padding: 4px;
   }
-
-  .setting-label {
-    display: flex;
-    flex-direction: column;
-    cursor: pointer;
-    user-select: none;
-  }
-
-  .label-text {
-    color: #eee;
-    font-weight: 500;
+  .mode-button {
+    flex: 1;
+    padding: 8px 12px;
+    background: none;
+    border: none;
+    color: #aaa;
     font-size: 0.9rem;
-  }
-
-  .label-description {
-    color: #888;
-    font-size: 0.8rem;
-    margin-top: 2px;
-  }
-
-  .toggle-switch {
-    all: initial;
-    position: relative;
-    display: inline-block;
-    width: 40px;
-    height: 24px;
-    background-color: rgba(255, 255, 255, 0.2);
-    border-radius: 34px;
-    transition: background-color 0.3s;
+    font-weight: 500;
+    border-radius: 6px;
     cursor: pointer;
-    flex-shrink: 0;
-    margin-left: 15px;
+    transition: all 0.2s ease;
   }
-
-  .toggle-switch.active {
+  .mode-button:hover {
+    background-color: rgba(255,255,255,0.05);
+  }
+  .mode-button.active {
     background-color: #3b82f6;
+    color: white;
   }
-
-  .toggle-slider {
-    position: absolute;
-    height: 20px;
-    width: 20px;
-    left: 2px;
-    bottom: 2px;
-    background-color: white;
-    border-radius: 50%;
-    transition: transform 0.3s;
-  }
-
-  .toggle-switch.active .toggle-slider {
-    transform: translateX(16px);
+  .mode-description {
+    font-size: 0.8rem;
+    color: #888;
+    text-align: center;
+    margin: 12px 0 0;
   }
 </style>

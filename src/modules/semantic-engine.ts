@@ -1,16 +1,15 @@
 // src/modules/semantic-engine.ts
 import './ai-types';
-import type { SearchOptions } from '../stores';
 
-// Each term now includes a relevance score
-export interface SemanticTerm {
+// Simplified to reflect the focus on synonyms and related words
+export interface SemanticMatch {
   word: string;
-  score: number;
+  score: number; // Score from 0.0 to 1.0
 }
 
 export interface SemanticTerms {
   correctedTerm: string;
-  semanticMatches: SemanticTerm[];
+  semanticMatches: SemanticMatch[];
 }
 
 let session: LanguageModelSession | null = null;
@@ -44,11 +43,8 @@ function parseJsonResponse(raw: string): Partial<SemanticTerms> | null {
   }
 }
 
-export async function getSemanticTerms(term: string, options: SearchOptions): Promise<SemanticTerms> {
-  const activeOptions = Object.keys(options).filter(k => options[k as keyof SearchOptions]);
-  // Always include auto-correct in the cache key logic
-  const cacheKey = `${term}-autocorrect-${activeOptions.join('-')}`;
-  
+export async function getSemanticTerms(term: string): Promise<SemanticTerms> {
+  const cacheKey = term;
   if (sessionCache.has(cacheKey)) {
     return sessionCache.get(cacheKey)!;
   }
@@ -58,20 +54,15 @@ export async function getSemanticTerms(term: string, options: SearchOptions): Pr
     if (!session) return { correctedTerm: term, semanticMatches: [] };
   }
 
-  // --- UNIFIED PROMPT WITH -1 TO 1 SCORING ---
+  // --- SIMPLIFIED PROMPT ---
   const prompt = `
     For "${term}", provide a JSON object with keys: "correctedTerm" and "semanticMatches".
-    The "correctedTerm" key is mandatory and should contain the spell-checked version of the input.
-    "semanticMatches" should be an array of objects, each with a "word" and a "score" property.
-    The "score" must be a number between -1.0 and 1.0:
-    - A score > 0 indicates a synonym or related word (1.0 is a perfect synonym).
-    - A score < 0 indicates an antonym or opposite concept (-1.0 is a direct antonym).
-    - A score of 0 is a neutral or unrelated term.
-    Base the matches on the corrected term. Provide 5-10 semantically related words.
+    "correctedTerm" should be the spell-checked version of the input.
+    "semanticMatches" should be an array of objects, each with a "word" and a "score".
+    The "score" must be a number between 0.0 and 1.0, indicating how similar the word is to the corrected term (1.0 is a perfect synonym).
+    Provide 5-10 relevant words.
     Respond with ONLY the raw JSON.
   `;
-
-  console.log(`Dynamic prompt created: ${prompt}`);
 
   try {
     const aiResponseString = await session.prompt(prompt);
@@ -91,4 +82,3 @@ export async function getSemanticTerms(term: string, options: SearchOptions): Pr
     return { correctedTerm: term, semanticMatches: [] };
   }
 }
-

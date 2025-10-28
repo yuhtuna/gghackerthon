@@ -1,25 +1,19 @@
 import { writable, type Writable } from 'svelte/store';
 
 // Define the structure for our settings
-export interface SearchOptions {
-  synonyms: boolean;
-  antonyms: boolean;
-  relatedWords: boolean;
-  imageSearch: boolean;
-  // We'll add spellcheck here later
+export type SearchMode = 'find' | 'basic' | 'deep';
+
+export interface AppSettings {
+  searchMode: SearchMode;
 }
 
-const defaultOptions: SearchOptions = {
-  synonyms: true,
-  antonyms: false,
-  relatedWords: true,
-  imageSearch: true,
+const defaultSettings: AppSettings = {
+  searchMode: 'basic', // 'basic' is the new default mode
 };
 
 const createPersistentStore = <T>(key: string, startValue: T): Writable<T> => {
   const { subscribe, set, update } = writable<T>(startValue);
 
-  // Safely load the value from storage and update the store
   if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
     chrome.storage.local.get(key).then(value => {
       if (value && value[key] !== undefined) {
@@ -31,7 +25,6 @@ const createPersistentStore = <T>(key: string, startValue: T): Writable<T> => {
   return {
     subscribe,
     set: (value: T) => {
-      // Safely save the value to storage
       if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
         chrome.storage.local.set({ [key]: value });
       }
@@ -40,7 +33,6 @@ const createPersistentStore = <T>(key: string, startValue: T): Writable<T> => {
     update: (updater: (value: T) => T) => {
       update((currentValue) => {
         const newValue = updater(currentValue);
-        // Safely save the new value to storage
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
           chrome.storage.local.set({ [key]: newValue });
         }
@@ -50,5 +42,4 @@ const createPersistentStore = <T>(key: string, startValue: T): Writable<T> => {
   };
 };
 
-export const searchOptions = createPersistentStore<SearchOptions>('findableSettings', defaultOptions);
-
+export const appSettings = createPersistentStore<AppSettings>('findableSettings', defaultSettings);
