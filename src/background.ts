@@ -7,15 +7,22 @@ import contentScript from './content?script';
 chrome.runtime.onStartup.addListener(() => initializeAiSession());
 chrome.runtime.onInstalled.addListener(() => initializeAiSession());
 
-// Inject UI on command
+// Toggle UI on command
 chrome.commands.onCommand.addListener(async (command) => {
   if (command !== "open-findable-search") return;
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (tab?.id && tab.url && !tab.url.startsWith('chrome://')) {
+  if (tab?.id) {
+    chrome.tabs.sendMessage(tab.id, { type: 'toggle-findable-ui' });
+  }
+});
+
+// Inject content script on tab updates to ensure it's available
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status === 'complete' && tab.url && !tab.url.startsWith('chrome://')) {
     chrome.scripting.executeScript({
-      target: { tabId: tab.id },
+      target: { tabId: tabId },
       files: [contentScript],
-    });
+    }).catch(err => console.log('Error injecting script:', err));
   }
 });
 

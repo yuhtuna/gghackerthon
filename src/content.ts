@@ -294,4 +294,8 @@ function toggleFindableUI() {
   }
 }
 
-toggleFindableUI();
+chrome.runtime.onMessage.addListener((request) => {
+  if (request.type === 'toggle-findable-ui') {
+    toggleFindableUI();
+  }
+});
