@@ -17,10 +17,8 @@ interface TermGroup {
     isSentence?: boolean; // New flag
 }
 
-export function highlightCategorized(terms: TermGroup, options = { append: false }): number {
-  if (!options.append) {
-    clear();
-  }
+export function highlightCategorized(terms: TermGroup): number {
+  clear();
 
   // Highlight original term (yellow) or sentences (blue)
   if (terms.original.some(t => t.includes(' '))) { // Simple check for sentences
@@ -119,18 +117,18 @@ function highlightTermList(termList: { word: string; score: number }[], classNam
     highlightInDocument(document, termList, className);
 }
 
-export function goToNext(): { current: number; total: number } {
-  if (highlights.length === 0) return { current: -1, total: 0 };
+export function goToNext(): { current: number } {
+  if (highlights.length === 0) return { current: -1 };
   currentIndex = (currentIndex + 1) % highlights.length;
   updateCurrentHighlight();
-  return { current: currentIndex, total: highlights.length };
+  return { current: currentIndex };
 }
 
-export function goToPrev(): { current: number; total: number } {
-  if (highlights.length === 0) return { current: -1, total: 0 };
+export function goToPrev(): { current: number } {
+  if (highlights.length === 0) return { current: -1 };
   currentIndex = (currentIndex - 1 + highlights.length) % highlights.length;
   updateCurrentHighlight();
-  return { current: currentIndex, total: highlights.length };
+  return { current: currentIndex };
 }
 
 function updateCurrentHighlight() {
