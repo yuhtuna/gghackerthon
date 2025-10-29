@@ -14,6 +14,7 @@ let currentIndex = -1;
 interface TermGroup {
   original: string[];
   semanticMatches: { word: string; score: number }[];
+    isSentence?: boolean; // New flag
 }
 
 export function highlightCategorized(terms: TermGroup): number {
@@ -40,7 +41,7 @@ export function highlightCategorized(terms: TermGroup): number {
   return highlights.length;
 }
 
-function highlightTermList(termList: { word: string; score: number }[], className: string) {
+function highlightInDocument(doc: Document, termList: { word: string; score: number }[], className: string) {
     const validTerms = termList ? termList.filter(t => typeof t.word === 'string' && t.word.trim() !== '') : [];
     if (validTerms.length === 0) return;
 
@@ -48,60 +49,72 @@ function highlightTermList(termList: { word: string; score: number }[], classNam
     const regexPattern = `(${escapedTerms.join('|')})`;
     const regex = new RegExp(regexPattern, 'gi');
 
-    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
-      acceptNode: (node: Text) => {
-        if (node.parentElement?.closest('#findable-extension-root') || 
-            ['SCRIPT', 'STYLE', 'NOSCRIPT'].includes(node.parentElement?.tagName || '')) {
+    const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_ELEMENT, {
+      acceptNode: (node: Element) => {
+        if (node.closest('#findable-extension-root') || 
+            ['SCRIPT', 'STYLE', 'NOSCRIPT', 'MARK'].includes(node.tagName)) {
           return NodeFilter.FILTER_REJECT;
         }
-        if (regex.test(node.nodeValue || '')) {
+        // Check if the element or its children have text content that matches
+        if (regex.test(node.textContent || '')) {
+          // Reset regex from previous test
+          regex.lastIndex = 0;
           return NodeFilter.FILTER_ACCEPT;
         }
         return NodeFilter.FILTER_REJECT;
       }
     });
   
-    const nodesToProcess: Text[] = [];
+    const nodesToProcess: Element[] = [];
     while (walker.nextNode()) {
-      nodesToProcess.push(walker.currentNode as Text);
+      nodesToProcess.push(walker.currentNode as Element);
     }
   
-    nodesToProcess.forEach(node => {
-      const text = node.nodeValue;
-      if (!text) return;
-  
-      const fragment = document.createDocumentFragment();
-      let lastIndex = 0;
-  
-      while (true) {
-        const match = regex.exec(text);
-        if (!match) break;
+    for (const node of nodesToProcess) {
+      const childNodes = Array.from(node.childNodes);
+      for (const child of childNodes) {
+        if (child.nodeType === Node.TEXT_NODE) {
+          const textNode = child as Text;
+          const text = textNode.nodeValue;
+          if (!text || !regex.test(text)) continue;
+          regex.lastIndex = 0; // Reset from test
 
-        if (match.index > lastIndex) {
-          fragment.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+          const fragment = doc.createDocumentFragment();
+          let lastIndex = 0;
+          let match;
+
+          while ((match = regex.exec(text)) !== null) {
+            if (match.index > lastIndex) {
+              fragment.appendChild(doc.createTextNode(text.slice(lastIndex, match.index)));
+            }
+
+            const matchedWord = match[0];
+            const termData = validTerms.find(t => t.word.toLowerCase() === matchedWord.toLowerCase());
+            const score = termData ? Math.abs(termData.score) : 1.0;
+
+            const mark = doc.createElement('mark');
+            mark.textContent = matchedWord;
+            mark.className = className;
+            mark.style.setProperty('--highlight-intensity', score.toString());
+            fragment.appendChild(mark);
+
+            lastIndex = regex.lastIndex;
+          }
+
+          if (lastIndex < text.length) {
+            fragment.appendChild(doc.createTextNode(text.slice(lastIndex)));
+          }
+          
+          if (fragment.childNodes.length > 0) {
+            node.replaceChild(fragment, textNode);
+          }
         }
-
-        const matchedWord = match[0];
-        const termData = validTerms.find(t => t.word.toLowerCase() === matchedWord.toLowerCase());
-        const score = termData ? Math.abs(termData.score) : 1.0;
-
-        const mark = document.createElement('mark');
-        mark.textContent = matchedWord;
-        mark.className = className;
-        mark.style.setProperty('--highlight-intensity', score.toString());
-        fragment.appendChild(mark);
-
-        lastIndex = regex.lastIndex;
       }
+    }
+}
 
-      if (lastIndex < text.length) {
-        fragment.appendChild(document.createTextNode(text.slice(lastIndex)));
-      }
-      
-      if (fragment.childNodes.length > 0) {
-        node.parentNode?.replaceChild(fragment, node);
-      }
-    });
+function highlightTermList(termList: { word: string; score: number }[], className: string) {
+    highlightInDocument(document, termList, className);
 }
 
 export function goToNext(): { current: number; total: number } {

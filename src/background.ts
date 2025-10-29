@@ -23,7 +23,7 @@ chrome.commands.onCommand.addListener(async (command) => {
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'getSemanticTerms') {
     // THE FIX: Pass the 'options' object from the request to the engine
-    getSemanticTerms(request.term, request.options).then(sendResponse);
+    getSemanticTerms(request.term, request.pageContent).then(sendResponse);
     return true; // Indicates we will respond asynchronously
   }
 });

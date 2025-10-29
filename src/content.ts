@@ -1,3 +1,5 @@
+import { getDescriptiveMatches } from './modules/semantic-engine';
+import type { DescriptiveMatch } from './modules/ai-types';
 import SearchBar from './SearchBar.svelte';
 import { highlightCategorized, clear, goToNext, goToPrev } from './highlighter';
 import type { SemanticTerms } from './modules/semantic-engine';
@@ -5,145 +7,291 @@ import { appSettings } from './stores';
 import { get } from 'svelte/store';
 import { debounce } from './modules/utils';
 
-function toggleFindableUI() {
-  const existingRoot = document.querySelector('#findable-extension-root');
-  if (existingRoot) {
-    clear();
-    existingRoot.remove();
-    return;
-  }
-  
-  const container = document.createElement('div');
-  container.id = 'findable-extension-root';
-  const shadowRoot = container.attachShadow({ mode: 'open' });
-  
-  // Styles are simplified as we no longer need an antonym color
-  const globalStyle = document.createElement('style');
-  globalStyle.id = 'findable-highlight-styles';
-  globalStyle.textContent = `
-    mark.findable-highlight-original { background-color: rgba(253, 224, 71, 0.7) !important; color: #18181b !important; }
-    mark.findable-highlight-semantic { background-color: rgba(134, 239, 172, var(--highlight-intensity, 0.5)) !important; color: #14532d !important; }
-    mark.findable-highlight-sentence { background-color: rgba(147, 197, 253, 0.7) !important; color: #1e3a8a !important; } /* Blue for sentences */
-    mark[class*="findable-highlight-"] { padding: 2px !important; border-radius: 3px !important; scroll-margin: 50vh !important; }
-    mark.findable-highlight-current { box-shadow: 0 0 0 2px #60a5fa !important; background-color: #60a5fa !important; }
-  `;
-  document.head.appendChild(globalStyle);
+function extractPdfText(): string | null {
+  console.log('[Findable] Running PDF text extraction...');
 
-  const target = document.createElement('div');
-  shadowRoot.appendChild(target);
-  document.body.appendChild(container);
+  // --- Debugging Step 1: Log potential selectors ---
+  const selectorsToTry = [
+    'span[class*="textLayer"]', // The one we have
+    '.textLayer span',           // A common pattern
+    'div[data-page-number] span' // Another common pattern
+  ];
 
-  const searchBar = new SearchBar({ target });
-
-  let smartResults: SemanticTerms | null = null;
-  let latestSearchId = 0;
-
-  const predictiveSmartSearch = debounce(async (term: string, searchId: number) => {
-    const pageContent = document.body.innerText;
-    const results = await chrome.runtime.sendMessage({ 
-      type: 'getSemanticTerms', 
-      term, 
-      pageContent 
-    });
-    
-    if (searchId !== latestSearchId) return; // Stale search, discard results
-
-    smartResults = results;
-    searchBar.setSmartState('ready'); // Notify UI that smart results are ready
-  }, 800);
-
-  const performDeepScan = async (term: string, searchId: number) => {
-    searchBar.setLoading(true);
-    
-    const pageText = document.body.innerText;
-    const chunks = pageText.match(/[\s\S]{1,2000}/g) || [];
-    let allMatches: string[] = [];
-
-    for (const chunk of chunks) {
-      if (searchId !== latestSearchId) return; // Check signal between chunks
-      const matches = await chrome.runtime.sendMessage({ 
-        type: 'getDescriptiveMatches', 
-        textChunk: chunk, 
-        description: term 
+  for (const selector of selectorsToTry) {
+    const elements = document.querySelectorAll(selector);
+    console.log(`[Findable] Found ${elements.length} elements with selector: "${selector}"`);
+    if (elements.length > 0) {
+      let fullText = '';
+      elements.forEach(el => {
+        fullText += (el as HTMLElement).innerText + ' ';
       });
-      if (matches && matches.length > 0) {
-        allMatches = allMatches.concat(matches);
-      }
+      console.log('[Findable] Successfully extracted text from PDF structure.');
+      return fullText;
     }
-    
-    if (searchId !== latestSearchId) return; // Final check before applying highlights
+  }
 
-    const total = highlightCategorized({ original: allMatches, semanticMatches: [] });
-    searchBar.setResults(total, total > 0 ? 0 : -1);
-    searchBar.setLoading(false);
-  };
+  // --- Debugging Step 2: Check for iframes ---
+  const iframes = document.querySelectorAll('iframe');
+  if (iframes.length > 0) {
+    console.log(`[Findable] Found ${iframes.length} iframe(s). The PDF might be inside one, which can block script access. This is a common issue.`);
+  }
 
-  searchBar.$on('search', (event) => {
-    latestSearchId++;
-    const currentSearchId = latestSearchId;
-    const { term } = event.detail;
-    const mode = get(appSettings).searchMode;
-    
-    clear();
-    smartResults = null;
-    searchBar.setSmartState('idle');
-    searchBar.setLoading(false);
+  // --- Debugging Step 3: Check for embedded PDFs ---
+  const embed = document.querySelector('embed[type="application/pdf"]');
+  if (embed) {
+    console.log('[Findable] Found an <embed> tag for a PDF. Content is not accessible due to browser security.');
+    return 'embedded_pdf';
+  }
 
-    if (!term) {
-      searchBar.setResults(0, -1);
+  console.log('[Findable] No known PDF text structure found on the page.');
+  return null; // No known PDF structure found
+}
+
+function toggleFindableUI() {
+  if (window.self === window.top) {
+    // --- PERSONALITY 1: COMMANDER (Main Page) ---
+    const existingRoot = document.querySelector('#findable-extension-root');
+    if (existingRoot) {
+      clear();
+      existingRoot.remove();
       return;
     }
+    
+    const container = document.createElement('div');
+    container.id = 'findable-extension-root';
+    const shadowRoot = container.attachShadow({ mode: 'open' });
+    
+    const globalStyle = document.createElement('style');
+    globalStyle.id = 'findable-highlight-styles';
+    globalStyle.textContent = `
+      mark.findable-highlight-original { background-color: rgba(253, 224, 71, 0.7) !important; color: #18181b !important; }
+      mark.findable-highlight-semantic { background-color: rgba(134, 239, 172, var(--highlight-intensity, 0.5)) !important; color: #14532d !important; }
+      mark.findable-highlight-sentence { background-color: rgba(147, 197, 253, 0.7) !important; color: #1e3a8a !important; }
+      mark[class*="findable-highlight-"] { padding: 2px !important; border-radius: 3px !important; scroll-margin: 50vh !important; }
+      mark.findable-highlight-current { box-shadow: 0 0 0 2px #60a5fa !important; background-color: #60a5fa !important; }
+    `;
+    shadowRoot.appendChild(globalStyle);
 
-    // Mode 1: Standard Find (No AI)
-    if (mode === 'find') {
-      const total = highlightCategorized({ original: [term], semanticMatches: [] });
-      searchBar.setResults(total, total > 0 ? 0 : -1);
-    }
-    
-    // Mode 2: Basic AI (Predictive Fetch)
-    if (mode === 'basic') {
-      const total = highlightCategorized({ original: [term], semanticMatches: [] });
-      searchBar.setResults(total, total > 0 ? 0 : -1);
-      predictiveSmartSearch(term, currentSearchId);
-    }
-    
-    // Mode 3: Deep Scan (Descriptive Search)
-    if (mode === 'deep' && term.split(' ').length > 3) {
-      performDeepScan(term, currentSearchId);
-    } else if (mode === 'deep') {
-      // Fallback for short queries in deep mode
-      const total = highlightCategorized({ original: [term], semanticMatches: [] });
-      searchBar.setResults(total, total > 0 ? 0 : -1);
-    }
-  });
+    const target = document.createElement('div');
+    shadowRoot.appendChild(target);
+    document.body.appendChild(container);
 
-  searchBar.$on('apply_smart_results', () => {
-    if (!smartResults) return;
-    
-    clear();
-    const total = highlightCategorized({
-      original: [smartResults.correctedTerm],
-      semanticMatches: smartResults.semanticMatches,
+    const searchBar = new SearchBar({ target });
+
+    let smartResults: SemanticTerms | null = null;
+    let latestSearchId = 0;
+    let iframeTextContent = '';
+
+    const predictiveSmartSearch = debounce(async (term: string, searchId: number) => {
+      const pageContent = iframeTextContent || document.body.innerText;
+      const results = await chrome.runtime.sendMessage({ 
+        type: 'getSemanticTerms', 
+        term, 
+        pageContent 
+      });
+      
+      if (searchId !== latestSearchId) return;
+
+      smartResults = results;
+      searchBar.setSmartState('ready');
+    }, 800);
+
+    const performDeepScan = async (description: string, searchId: number) => {
+      searchBar.setSmartState('loading');
+      clear();
+
+      const pageText = iframeTextContent || extractPdfText() || document.body.innerText;
+      const chunks = pageText.match(/[\s\S]{1,2000}/g) || [];
+      let allMatches: DescriptiveMatch[] = [];
+
+      for (const chunk of chunks) {
+        if (searchId !== latestSearchId) return;
+        const matches = await getDescriptiveMatches(chunk, description);
+        allMatches = allMatches.concat(matches);
+      }
+      
+      if (searchId !== latestSearchId) return;
+
+      const sentencesToHighlight = allMatches.map(m => ({ word: m.matchingSentence, score: m.relevanceScore }));
+      const total = highlightCategorized({ original: [], semanticMatches: sentencesToHighlight, isSentence: true });
+        
+      searchBar.setResults(total, total > 0 ? 0 : -1);
+      searchBar.setSmartState('idle');
+    };
+
+    // Listen for messages from soldier iframes
+    window.addEventListener('message', (event) => {
+      if (event.data.type === 'findable-text-content') {
+        console.log('[Findable Commander] Received PDF text content from iframe');
+        iframeTextContent = event.data.content;
+      }
+      
+      if (event.data.type === 'findable-results') {
+        console.log('[Findable Commander] Received results from iframe:', event.data.total);
+        // Update the search bar with combined results if needed
+      }
     });
-    searchBar.setResults(total, total > 0 ? 0 : -1);
-    searchBar.setSmartState('idle');
-  });
-  
-  searchBar.$on('next', () => {
-    const { current, total } = goToNext();
-    searchBar.setResults(total, current);
-  });
 
-  searchBar.$on('prev', () => {
-    const { current, total } = goToPrev();
-    searchBar.setResults(total, current);
-  });
+    searchBar.$on('search', (event) => {
+      latestSearchId++;
+      const currentSearchId = latestSearchId;
+      const { term } = event.detail;
+      const mode = get(appSettings).searchMode;
+      
+      clear();
+      smartResults = null;
+      searchBar.setSmartState('idle');
+      searchBar.setLoading(false);
 
-  searchBar.$on('close', () => {
-    clear();
-    globalStyle.remove();
-    container.remove();
-  });
+      if (!term) {
+        searchBar.setResults(0, -1);
+        return;
+      }
+
+      // Send order to all iframes
+      const iframes = document.querySelectorAll('iframe');
+      for (const iframe of iframes) {
+        try {
+          iframe.contentWindow?.postMessage({ 
+            type: 'findable-search', 
+            term, 
+            mode,
+            searchId: currentSearchId 
+          }, '*');
+        } catch (e) {
+          console.error('[Findable Commander] Could not send message to iframe:', e);
+        }
+      }
+
+      // Also search on main page
+      if (mode === 'find') {
+        const total = highlightCategorized({ original: [term], semanticMatches: [] });
+        searchBar.setResults(total, total > 0 ? 0 : -1);
+      }
+      
+      if (mode === 'basic') {
+        const total = highlightCategorized({ original: [term], semanticMatches: [] });
+        searchBar.setResults(total, total > 0 ? 0 : -1);
+        predictiveSmartSearch(term, currentSearchId);
+      }
+      
+      if (mode === 'deep' && term.split(' ').length > 3) {
+        performDeepScan(term, currentSearchId);
+      } else if (mode === 'deep') {
+        const total = highlightCategorized({ original: [term], semanticMatches: [] });
+        searchBar.setResults(total, total > 0 ? 0 : -1);
+      }
+    });
+
+    searchBar.$on('apply_smart_results', () => {
+      if (!smartResults) return;
+      
+      clear();
+      const total = highlightCategorized({
+        original: [smartResults.correctedTerm],
+        semanticMatches: smartResults.semanticMatches,
+      });
+      searchBar.setResults(total, total > 0 ? 0 : -1);
+      searchBar.setSmartState('idle');
+    });
+    
+    searchBar.$on('next', () => {
+      const { current, total } = goToNext();
+      searchBar.setResults(total, current);
+      
+      // Send next command to iframes
+      const iframes = document.querySelectorAll('iframe');
+      for (const iframe of iframes) {
+        try {
+          iframe.contentWindow?.postMessage({ type: 'findable-next' }, '*');
+        } catch (e) {
+          console.error('[Findable Commander] Could not send next to iframe:', e);
+        }
+      }
+    });
+
+    searchBar.$on('prev', () => {
+      const { current, total } = goToPrev();
+      searchBar.setResults(total, current);
+      
+      // Send prev command to iframes
+      const iframes = document.querySelectorAll('iframe');
+      for (const iframe of iframes) {
+        try {
+          iframe.contentWindow?.postMessage({ type: 'findable-prev' }, '*');
+        } catch (e) {
+          console.error('[Findable Commander] Could not send prev to iframe:', e);
+        }
+      }
+    });
+
+    searchBar.$on('close', () => {
+      clear();
+      
+      // Send close command to iframes
+      const iframes = document.querySelectorAll('iframe');
+      for (const iframe of iframes) {
+        try {
+          iframe.contentWindow?.postMessage({ type: 'findable-clear' }, '*');
+        } catch (e) {
+          console.error('[Findable Commander] Could not send clear to iframe:', e);
+        }
+      }
+      
+      globalStyle.remove();
+      container.remove();
+    });
+    
+  } else {
+    // --- PERSONALITY 2: SOLDIER (iframe) ---
+    console.log('[Findable Soldier] Running in iframe, listening for orders...');
+    
+    window.addEventListener('message', (event) => {
+      if (event.data.type === 'findable-search') {
+        console.log('[Findable Soldier] Received search order:', event.data.term);
+        const { term, mode } = event.data;
+        
+        // Extract PDF text and send it back to commander
+        const pdfText = extractPdfText();
+        if (pdfText) {
+          console.log('[Findable Soldier] Extracted PDF text, sending to commander...');
+          window.parent.postMessage({ 
+            type: 'findable-text-content', 
+            content: pdfText 
+          }, '*');
+        }
+        
+        clear();
+        
+        if (mode === 'find') {
+          const total = highlightCategorized({ original: [term], semanticMatches: [] });
+          window.parent.postMessage({ type: 'findable-results', total }, '*');
+        }
+        
+        if (mode === 'basic') {
+          const total = highlightCategorized({ original: [term], semanticMatches: [] });
+          window.parent.postMessage({ type: 'findable-results', total }, '*');
+        }
+        
+        if (mode === 'deep') {
+          const total = highlightCategorized({ original: [term], semanticMatches: [] });
+          window.parent.postMessage({ type: 'findable-results', total }, '*');
+        }
+      }
+      
+      if (event.data.type === 'findable-next') {
+        goToNext();
+      }
+      
+      if (event.data.type === 'findable-prev') {
+        goToPrev();
+      }
+      
+      if (event.data.type === 'findable-clear') {
+        clear();
+      }
+    });
+  }
 }
 
 toggleFindableUI();
