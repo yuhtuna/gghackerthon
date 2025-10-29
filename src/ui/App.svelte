@@ -1,21 +1,21 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import ChatPanel from './ChatPanel.svelte';
-  let showChat = false;
+  import { showChat } from '../stores';
 
   function openChat() {
     console.log('WebNano: Opening chat');
-    showChat = true;
+    $showChat = true;
   }
   
   function closeChat() {
     console.log('WebNano: Closing chat');
-    showChat = false;
+    $showChat = false;
   }
   
   function toggleChat() {
-    showChat = !showChat;
-    console.log('WebNano: Toggled chat to', showChat);
+    showChat.toggle();
+    console.log('WebNano: Toggled chat to', $showChat);
   }
   
   onMount(() => {
@@ -28,7 +28,7 @@
 </script>
 
 <div class="app">
-  {#if showChat}
+  {#if $showChat}
     <div class="chat-backdrop" on:click={closeChat} />
     <div class="chat-popup">
       <ChatPanel />

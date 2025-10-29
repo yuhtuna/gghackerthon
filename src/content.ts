@@ -30,10 +30,11 @@ if (document.readyState === 'loading') {
   initWebNanoUI();
 }
 
+import { showChat } from './stores';
+
 // Listen for toggle command
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'toggle-chat') {
-    // Dispatch custom event to App component
-    window.dispatchEvent(new CustomEvent('webnano-toggle-chat'));
+    showChat.toggle();
   }
 });

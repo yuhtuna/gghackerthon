@@ -52,3 +52,13 @@ const createPersistentStore = <T>(key: string, startValue: T): Writable<T> => {
 
 export const searchOptions = createPersistentStore<SearchOptions>('findableSettings', defaultOptions);
 
+function createToggleStore() {
+  const { subscribe, update } = writable(false);
+
+  return {
+    subscribe,
+    toggle: () => update(n => !n),
+  };
+}
+
+export const showChat = createToggleStore();
