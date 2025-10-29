@@ -119,6 +119,8 @@ function toggleFindableUI() {
       searchBar.setSmartState('idle');
     };
 
+    let totalResults = 0;
+
     // Listen for messages from soldier iframes
     window.addEventListener('message', (event) => {
       if (event.data.type === 'findable-text-content') {
@@ -128,7 +130,8 @@ function toggleFindableUI() {
       
       if (event.data.type === 'findable-results') {
         console.log('[Findable Commander] Received results from iframe:', event.data.total);
-        // Update the search bar with combined results if needed
+        totalResults += event.data.total;
+        searchBar.setResults(totalResults, totalResults > 0 ? 0 : -1);
       }
     });
 
@@ -142,6 +145,7 @@ function toggleFindableUI() {
       smartResults = null;
       searchBar.setSmartState('idle');
       searchBar.setLoading(false);
+      totalResults = 0;
 
       if (!term) {
         searchBar.setResults(0, -1);
@@ -166,12 +170,14 @@ function toggleFindableUI() {
       // Also search on main page
       if (mode === 'find') {
         const total = highlightCategorized({ original: [term], semanticMatches: [] });
-        searchBar.setResults(total, total > 0 ? 0 : -1);
+        totalResults += total;
+        searchBar.setResults(totalResults, totalResults > 0 ? 0 : -1);
       }
       
       if (mode === 'basic') {
         const total = highlightCategorized({ original: [term], semanticMatches: [] });
-        searchBar.setResults(total, total > 0 ? 0 : -1);
+        totalResults += total;
+        searchBar.setResults(totalResults, totalResults > 0 ? 0 : -1);
         predictiveSmartSearch(term, currentSearchId);
       }
       
@@ -179,7 +185,8 @@ function toggleFindableUI() {
         performDeepScan(term, currentSearchId);
       } else if (mode === 'deep') {
         const total = highlightCategorized({ original: [term], semanticMatches: [] });
-        searchBar.setResults(total, total > 0 ? 0 : -1);
+        totalResults += total;
+        searchBar.setResults(totalResults, totalResults > 0 ? 0 : -1);
       }
     });
 
