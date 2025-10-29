@@ -117,16 +117,23 @@ function highlightTermList(termList: { word: string; score: number }[], classNam
     highlightInDocument(document, termList, className);
 }
 
-export function goToNext(): { current: number } {
+export function goToNext(index?: number): { current: number } {
   if (highlights.length === 0) return { current: -1 };
-  currentIndex = (currentIndex + 1) % highlights.length;
+  currentIndex = index ?? (currentIndex + 1) % highlights.length;
   updateCurrentHighlight();
   return { current: currentIndex };
 }
 
-export function goToPrev(): { current: number } {
+export function goToPrev(index?: number): { current: number } {
   if (highlights.length === 0) return { current: -1 };
-  currentIndex = (currentIndex - 1 + highlights.length) % highlights.length;
+  currentIndex = index ?? (currentIndex - 1 + highlights.length) % highlights.length;
+  updateCurrentHighlight();
+  return { current: currentIndex };
+}
+
+export function goTo(index: number): { current: number } {
+  if (highlights.length === 0 || index < 0 || index >= highlights.length) return { current: -1 };
+  currentIndex = index;
   updateCurrentHighlight();
   return { current: currentIndex };
 }

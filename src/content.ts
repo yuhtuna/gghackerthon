@@ -1,7 +1,7 @@
 import { getDescriptiveMatches } from './modules/semantic-engine';
 import type { DescriptiveMatch } from './modules/ai-types';
 import SearchBar from './SearchBar.svelte';
-import { highlightCategorized, clear, goToNext, goToPrev } from './highlighter';
+import { highlightCategorized, clear, goToNext, goToPrev, goTo } from './highlighter';
 import type { SemanticTerms } from './modules/semantic-engine';
 import { appSettings } from './stores';
 import { get } from 'svelte/store';
@@ -119,7 +119,9 @@ function toggleFindableUI() {
       searchBar.setSmartState('idle');
     };
 
+    let frameResults = [{ frame: window, count: 0 }];
     let totalResults = 0;
+    let globalCurrentIndex = -1;
 
     // Listen for messages from soldier iframes
     window.addEventListener('message', (event) => {
@@ -130,7 +132,14 @@ function toggleFindableUI() {
       
       if (event.data.type === 'findable-results') {
         console.log('[Findable Commander] Received results from iframe:', event.data.total);
-        totalResults += event.data.total;
+        const frameSource = event.source as Window;
+        const existingFrame = frameResults.find(f => f.frame === frameSource);
+        if (existingFrame) {
+          existingFrame.count = event.data.total;
+        } else {
+          frameResults.push({ frame: frameSource, count: event.data.total });
+        }
+        totalResults = frameResults.reduce((sum, f) => sum + f.count, 0);
         searchBar.setResults(totalResults, totalResults > 0 ? 0 : -1);
       }
     });
@@ -145,7 +154,10 @@ function toggleFindableUI() {
       smartResults = null;
       searchBar.setSmartState('idle');
       searchBar.setLoading(false);
+
+      frameResults = [{ frame: window, count: 0 }];
       totalResults = 0;
+      globalCurrentIndex = -1;
 
       if (!term) {
         searchBar.setResults(0, -1);
@@ -168,25 +180,21 @@ function toggleFindableUI() {
       }
 
       // Also search on main page
-      if (mode === 'find') {
-        const total = highlightCategorized({ original: [term], semanticMatches: [] });
-        totalResults += total;
+      if (mode === 'find' || mode === 'basic' || mode === 'deep') {
+        const mainFrameCount = highlightCategorized({ original: [term], semanticMatches: [] });
+        const mainFrame = frameResults.find(f => f.frame === window);
+        if (mainFrame) mainFrame.count = mainFrameCount;
+
+        totalResults = frameResults.reduce((sum, f) => sum + f.count, 0);
         searchBar.setResults(totalResults, totalResults > 0 ? 0 : -1);
       }
       
       if (mode === 'basic') {
-        const total = highlightCategorized({ original: [term], semanticMatches: [] });
-        totalResults += total;
-        searchBar.setResults(totalResults, totalResults > 0 ? 0 : -1);
         predictiveSmartSearch(term, currentSearchId);
       }
       
       if (mode === 'deep' && term.split(' ').length > 3) {
         performDeepScan(term, currentSearchId);
-      } else if (mode === 'deep') {
-        const total = highlightCategorized({ original: [term], semanticMatches: [] });
-        totalResults += total;
-        searchBar.setResults(totalResults, totalResults > 0 ? 0 : -1);
       }
     });
 
@@ -203,34 +211,43 @@ function toggleFindableUI() {
     });
     
     searchBar.$on('next', () => {
-      const { current } = goToNext();
-      searchBar.setResults(totalResults, current);
-      
-      // Send next command to iframes
-      const iframes = document.querySelectorAll('iframe');
-      for (const iframe of iframes) {
-        try {
-          iframe.contentWindow?.postMessage({ type: 'findable-next' }, '*');
-        } catch (e) {
-          console.error('[Findable Commander] Could not send next to iframe:', e);
-        }
-      }
+      if (totalResults === 0) return;
+      globalCurrentIndex = (globalCurrentIndex + 1) % totalResults;
+      updateGlobalHighlight();
     });
 
     searchBar.$on('prev', () => {
-      const { current } = goToPrev();
-      searchBar.setResults(totalResults, current);
-      
-      // Send prev command to iframes
-      const iframes = document.querySelectorAll('iframe');
-      for (const iframe of iframes) {
-        try {
-          iframe.contentWindow?.postMessage({ type: 'findable-prev' }, '*');
-        } catch (e) {
-          console.error('[Findable Commander] Could not send prev to iframe:', e);
-        }
-      }
+      if (totalResults === 0) return;
+      globalCurrentIndex = (globalCurrentIndex - 1 + totalResults) % totalResults;
+      updateGlobalHighlight();
     });
+
+    function updateGlobalHighlight() {
+      let cumulative = 0;
+      for (const frame of frameResults) {
+        if (globalCurrentIndex < cumulative + frame.count) {
+          const localIndex = globalCurrentIndex - cumulative;
+          if (frame.frame === window) {
+            goToNext(localIndex);
+          } else {
+            (frame.frame as Window).postMessage({ type: 'findable-goto', index: localIndex }, '*');
+          }
+          // Clear highlights in other frames
+          for (const otherFrame of frameResults) {
+            if (otherFrame !== frame) {
+              if (otherFrame.frame === window) {
+                clear();
+              } else {
+                (otherFrame.frame as Window).postMessage({ type: 'findable-clear' }, '*');
+              }
+            }
+          }
+          break;
+        }
+        cumulative += frame.count;
+      }
+      searchBar.setResults(totalResults, globalCurrentIndex);
+    }
 
     searchBar.$on('close', () => {
       clear();
@@ -292,6 +309,10 @@ function toggleFindableUI() {
       
       if (event.data.type === 'findable-prev') {
         goToPrev();
+      }
+
+      if (event.data.type === 'findable-goto') {
+        goTo(event.data.index);
       }
       
       if (event.data.type === 'findable-clear') {
