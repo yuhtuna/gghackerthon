@@ -17,8 +17,10 @@ interface TermGroup {
     isSentence?: boolean; // New flag
 }
 
-export function highlightCategorized(terms: TermGroup): number {
-  clear();
+export function highlightCategorized(terms: TermGroup, options = { append: false }): number {
+  if (!options.append) {
+    clear();
+  }
 
   // Highlight original term (yellow) or sentences (blue)
   if (terms.original.some(t => t.includes(' '))) { // Simple check for sentences

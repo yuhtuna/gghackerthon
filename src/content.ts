@@ -96,9 +96,11 @@ function toggleFindableUI() {
       searchBar.setSmartState('ready');
     }, 800);
 
-    const performDeepScan = async (description: string, searchId: number) => {
+    const performDeepScan = async (description: string, searchId: number, options = { append: false }) => {
       searchBar.setSmartState('loading');
-      clear();
+      if (!options.append) {
+        clear();
+      }
 
       const pageText = iframeTextContent || extractPdfText() || document.body.innerText;
       const chunks = pageText.match(/[\s\S]{1,2000}/g) || [];
@@ -113,9 +115,10 @@ function toggleFindableUI() {
       if (searchId !== latestSearchId) return;
 
       const sentencesToHighlight = allMatches.map(m => ({ word: m.matchingSentence, score: m.relevanceScore }));
-      const total = highlightCategorized({ original: [], semanticMatches: sentencesToHighlight, isSentence: true });
-        
-      searchBar.setResults(total, total > 0 ? 0 : -1);
+      const total = highlightCategorized({ original: [], semanticMatches: sentencesToHighlight, isSentence: true }, { append: options.append });
+
+      totalResults += total;
+      searchBar.setResults(totalResults, totalResults > 0 ? 0 : -1);
       searchBar.setSmartState('idle');
     };
 
@@ -135,10 +138,13 @@ function toggleFindableUI() {
       }
     });
 
+    let lastSearchTerm = '';
+
     searchBar.$on('search', (event) => {
       latestSearchId++;
       const currentSearchId = latestSearchId;
       const { term } = event.detail;
+      lastSearchTerm = term;
       const mode = get(appSettings).searchMode;
       
       clear();
@@ -187,6 +193,17 @@ function toggleFindableUI() {
         const total = highlightCategorized({ original: [term], semanticMatches: [] });
         totalResults += total;
         searchBar.setResults(totalResults, totalResults > 0 ? 0 : -1);
+      }
+    });
+
+    searchBar.$on('scan_more', () => {
+      const scrollContainer = document.querySelector('#viewerContainer') || document.querySelector('.pdfViewer') || window;
+      if (scrollContainer) {
+        scrollContainer.scrollBy(0, window.innerHeight * 1.5);
+        setTimeout(() => {
+          latestSearchId++;
+          performDeepScan(lastSearchTerm, latestSearchId, { append: true });
+        }, 100);
       }
     });
 
@@ -301,8 +318,4 @@ function toggleFindableUI() {
   }
 }
 
-chrome.runtime.onMessage.addListener((request) => {
-  if (request.type === 'toggle-findable-ui') {
-    toggleFindableUI();
-  }
-});
+toggleFindableUI();
