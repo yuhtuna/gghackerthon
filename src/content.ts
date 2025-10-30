@@ -80,6 +80,7 @@ function toggleFindableUI() {
 
     let latestSearchId = 0;
     let iframeTextContent = '';
+    let currentDeepScanTerm = '';
 
     const predictiveSmartSearch = debounce(async (term: string, searchId: number) => {
       searchBar.setLoading(true);
@@ -166,11 +167,8 @@ function toggleFindableUI() {
 
       // A small delay to allow new content to render after scroll
       setTimeout(() => {
-        const currentSearchTerm = get(appSettings).searchMode === 'deep'
-          ? document.querySelector('input[type="text"]').value
-          : '';
-        if (currentSearchTerm) {
-          performDeepScan(currentSearchTerm, latestSearchId, true);
+        if (currentDeepScanTerm) {
+          performDeepScan(currentDeepScanTerm, latestSearchId, true);
         }
       }, 500);
     });
@@ -224,6 +222,7 @@ function toggleFindableUI() {
       }
       
       if (mode === 'deep' && term.split(' ').length > 3) {
+        currentDeepScanTerm = term;
         performDeepScan(term, currentSearchId);
       }
     });
