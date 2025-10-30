@@ -1,4 +1,3 @@
-import { getDescriptiveMatches } from './modules/semantic-engine';
 import type { DescriptiveMatch } from './modules/ai-types';
 import SearchBar from './SearchBar.svelte';
 import { highlightCategorized, clear, goToNext, goToPrev, goTo } from './highlighter';
@@ -119,8 +118,14 @@ function toggleFindableUI() {
 
       for (const chunk of chunks) {
         if (searchId !== latestSearchId) return;
-        const matches = await getDescriptiveMatches(chunk, description);
-        allMatches = allMatches.concat(matches);
+        const matches: DescriptiveMatch[] = await chrome.runtime.sendMessage({
+          type: 'getDescriptiveMatches',
+          textChunk: chunk,
+          description
+        });
+        if (matches) {
+          allMatches = allMatches.concat(matches);
+        }
       }
       
       if (searchId !== latestSearchId) return;

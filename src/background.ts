@@ -1,6 +1,6 @@
 // src/background.ts
 import './modules/ai-types';
-import { getSemanticTerms, initializeAiSession } from './modules/semantic-engine';
+import { getSemanticTerms, initializeAiSession, getDescriptiveMatches } from './modules/semantic-engine';
 import contentScript from './content?script';
 
 // AI Session Pre-warming
@@ -29,8 +29,12 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 // AI Message Listener
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'getSemanticTerms') {
-    // THE FIX: Pass the 'options' object from the request to the engine
     getSemanticTerms(request.term, request.pageContent).then(sendResponse);
+    return true; // Indicates we will respond asynchronously
+  }
+
+  if (request.type === 'getDescriptiveMatches') {
+    getDescriptiveMatches(request.textChunk, request.description).then(sendResponse);
     return true; // Indicates we will respond asynchronously
   }
 });
