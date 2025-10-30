@@ -78,22 +78,34 @@ function toggleFindableUI() {
 
     const searchBar = new SearchBar({ target });
 
-    let smartResults: SemanticTerms | null = null;
     let latestSearchId = 0;
     let iframeTextContent = '';
 
     const predictiveSmartSearch = debounce(async (term: string, searchId: number) => {
+      searchBar.setLoading(true);
       const pageContent = iframeTextContent || document.body.innerText;
-      const results = await chrome.runtime.sendMessage({ 
-        type: 'getSemanticTerms', 
-        term, 
-        pageContent 
+      const results: SemanticTerms = await chrome.runtime.sendMessage({
+        type: 'getSemanticTerms',
+        term,
+        pageContent
       });
       
       if (searchId !== latestSearchId) return;
 
-      smartResults = results;
-      searchBar.setSmartState('ready');
+      if (results && results.semanticMatches) {
+        const newTotal = highlightCategorized({
+          original: [results.correctedTerm || term],
+          semanticMatches: results.semanticMatches,
+        });
+
+        const mainFrame = frameResults.find(f => f.frame === window);
+        if (mainFrame) mainFrame.count = newTotal;
+
+        totalResults = frameResults.reduce((sum, f) => sum + f.count, 0);
+        searchBar.setResults(totalResults, totalResults > 0 ? 0 : -1);
+      }
+
+      searchBar.setLoading(false);
     }, 800);
 
     const performDeepScan = async (description: string, searchId: number) => {
@@ -151,8 +163,6 @@ function toggleFindableUI() {
       const mode = get(appSettings).searchMode;
       
       clear();
-      smartResults = null;
-      searchBar.setSmartState('idle');
       searchBar.setLoading(false);
 
       frameResults = [{ frame: window, count: 0 }];
@@ -198,17 +208,6 @@ function toggleFindableUI() {
       }
     });
 
-    searchBar.$on('apply_smart_results', () => {
-      if (!smartResults) return;
-      
-      clear();
-      const total = highlightCategorized({
-        original: [smartResults.correctedTerm],
-        semanticMatches: smartResults.semanticMatches,
-      });
-      searchBar.setResults(total, total > 0 ? 0 : -1);
-      searchBar.setSmartState('idle');
-    });
     
     searchBar.$on('next', () => {
       if (totalResults === 0) return;

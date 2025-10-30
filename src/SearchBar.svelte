@@ -9,7 +9,6 @@
   let resultCount = 0;
   let currentIndex = -1; // Start at -1 to correctly show "1 / total" on first match
   let isLoading = false;
-  let smartState: 'idle' | 'loading' | 'ready' = 'idle';
 
   let showSettings = false;
 
@@ -26,10 +25,6 @@
     isLoading = loading;
   }
 
-  // --- THE FIX: Expose a method to update the smart state ---
-  export function setSmartState(state: 'idle' | 'loading' | 'ready') {
-    smartState = state;
-  }
 
   const handleInputKeyDown = (event: KeyboardEvent) => {
     if (event.key === 'Enter') {
@@ -99,9 +94,7 @@
     
     <!-- Status area (Loading Spinner or Results Count) -->
     <div class="status-area">
-      {#if smartState === 'ready'}
-        <button class="smart-button" on:click={() => dispatch('apply_smart_results')} title="Apply smart search results">✨</button>
-      {:else if isLoading}
+      {#if isLoading}
         <div class="loading-spinner" title="Searching for semantic matches...">
           <svg class="spinner" viewBox="0 0 20 20">
             <circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="25.133" stroke-dashoffset="25.133">
@@ -223,20 +216,6 @@
     color: #525862ff;
     flex-shrink: 0;
   }
-  
-  .smart-button {
-    background: none;
-    border: none;
-    font-size: 1.2rem;
-    cursor: pointer;
-    padding: 5px;
-    border-radius: 5px;
-    transition: background-color 0.2s;
-  }
-
-  .smart-button:hover {
-    background-color: rgba(255,255,255,0.1);
-  }
 
   .icon-button {
       background: transparent;
@@ -274,4 +253,3 @@
     /* No changes needed here, it will still pop out below the search bar */
   }
 </style>
-

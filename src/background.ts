@@ -12,14 +12,7 @@ chrome.commands.onCommand.addListener(async (command) => {
   if (command !== "open-findable-search") return;
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (tab?.id) {
-    // Inject the content script and send the message in the callback
-    chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      files: [contentScript],
-    }, () => {
-      // Now that we're sure the script is injected, send the message.
-      chrome.tabs.sendMessage(tab.id, { type: 'toggle-findable-ui' });
-    });
+    chrome.tabs.sendMessage(tab.id, { type: 'toggle-findable-ui' });
   }
 });
 
