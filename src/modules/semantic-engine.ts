@@ -89,7 +89,7 @@ export async function getSemanticTerms(term: string, pageContent: string, option
   }
 }
 
-export async function getDescriptiveMatches(textChunk: string, description: string, options?: { signal: AbortSignal }): Promise<string[]> {
+export async function getDescriptiveMatches(textChunk: string, description: string, options?: { signal: AbortSignal }): Promise<DescriptiveMatch[]> {
   if (!session) {
     await initializeAiSession();
     if (!session) return [];
@@ -101,7 +101,8 @@ export async function getDescriptiveMatches(textChunk: string, description: stri
     ${textChunk}
     ---
     Now, find all sentences from the text that match this description: "${description}".
-    Return a JSON object with a single key, "matches", which is an array of the full sentence strings that you found.
+    Return a JSON object with a single key, "matches", which is an array of objects.
+    Each object must have two keys: "matchingSentence" (the full sentence string you found) and "relevanceScore" (a number from 0.0 to 1.0 indicating how well it matches).
     Respond with ONLY the raw JSON.
   `;
 
@@ -110,8 +111,11 @@ export async function getDescriptiveMatches(textChunk: string, description: stri
   try {
     const aiResponseString = await session.prompt(prompt, options);
     console.log('--- AI RESPONSE (getDescriptiveMatches) ---', aiResponseString);
-    const parsedResponse = JSON.parse(aiResponseString.replace(/```json|```/g, ''));
-    return parsedResponse.matches || [];
+    const parsedResponse = parseJsonResponse(aiResponseString);
+    if (!parsedResponse || !Array.isArray(parsedResponse.matches)) {
+      throw new Error("Invalid or missing 'matches' array in AI response.");
+    }
+    return parsedResponse.matches;
   } catch (error) {
     console.error("Error getting descriptive matches:", error);
     return [];
