@@ -9,6 +9,7 @@
   let resultCount = 0;
   let currentIndex = -1; // Start at -1 to correctly show "1 / total" on first match
   let isLoading = false;
+  let showScanMore = false;
 
   let showSettings = false;
 
@@ -23,6 +24,10 @@
   // Expose a method to set loading state
   export function setLoading(loading: boolean) {
     isLoading = loading;
+  }
+
+  export function showScanMoreButton(show: boolean) {
+    showScanMore = show;
   }
 
 
@@ -118,6 +123,12 @@
       <!-- Corrected "Chevron Right" Icon -->
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clip-rule="evenodd" /></svg>
     </button>
+
+    {#if showScanMore}
+      <button type="button" class="icon-button" on:click={() => dispatch('scan_more')} title="Scan more of the document">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" /></svg>
+      </button>
+    {/if}
     
     <button type="button" class="icon-button settings-button" on:click={toggleSettings} title="Settings">
       <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg>

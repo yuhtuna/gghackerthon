@@ -108,9 +108,9 @@ function toggleFindableUI() {
       searchBar.setLoading(false);
     }, 800);
 
-    const performDeepScan = async (description: string, searchId: number) => {
-      searchBar.setSmartState('loading');
-      clear();
+    const performDeepScan = async (description: string, searchId: number, isSubsequentScan = false) => {
+      searchBar.setLoading(true);
+      searchBar.showScanMoreButton(false);
 
       const pageText = iframeTextContent || extractPdfText() || document.body.innerText;
       const chunks = pageText.match(/[\s\S]{1,2000}/g) || [];
@@ -125,10 +125,14 @@ function toggleFindableUI() {
       if (searchId !== latestSearchId) return;
 
       const sentencesToHighlight = allMatches.map(m => ({ word: m.matchingSentence, score: m.relevanceScore }));
-      const total = highlightCategorized({ original: [], semanticMatches: sentencesToHighlight, isSentence: true });
+      const total = highlightCategorized(
+        { original: [], semanticMatches: sentencesToHighlight, isSentence: true },
+        { append: isSubsequentScan }
+      );
 
       searchBar.setResults(total, total > 0 ? 0 : -1);
-      searchBar.setSmartState('idle');
+      searchBar.setLoading(false);
+      searchBar.showScanMoreButton(true);
     };
 
     let frameResults = [{ frame: window, count: 0 }];
@@ -156,6 +160,21 @@ function toggleFindableUI() {
       }
     });
 
+    searchBar.$on('scan_more', () => {
+      const scrollContainer = document.querySelector('#viewerContainer') || window;
+      scrollContainer.scrollBy(0, window.innerHeight * 1.5);
+
+      // A small delay to allow new content to render after scroll
+      setTimeout(() => {
+        const currentSearchTerm = get(appSettings).searchMode === 'deep'
+          ? document.querySelector('input[type="text"]').value
+          : '';
+        if (currentSearchTerm) {
+          performDeepScan(currentSearchTerm, latestSearchId, true);
+        }
+      }, 500);
+    });
+
     searchBar.$on('search', (event) => {
       latestSearchId++;
       const currentSearchId = latestSearchId;
@@ -164,6 +183,7 @@ function toggleFindableUI() {
       
       clear();
       searchBar.setLoading(false);
+      searchBar.showScanMoreButton(false);
 
       frameResults = [{ frame: window, count: 0 }];
       totalResults = 0;
