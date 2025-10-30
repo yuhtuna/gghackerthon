@@ -17,6 +17,10 @@ chrome.commands.onCommand.addListener(async (command) => {
       target: { tabId: tab.id },
       files: [contentScript],
     }, () => {
+      if (chrome.runtime.lastError) {
+        console.log(`Could not inject script into tab ${tab.id}: ${chrome.runtime.lastError.message}`);
+        return;
+      }
       // Now that we're sure the script is injected, send the message.
       chrome.tabs.sendMessage(tab.id, { type: 'toggle-findable-ui' });
     });
@@ -25,7 +29,7 @@ chrome.commands.onCommand.addListener(async (command) => {
 
 // Inject content script on tab updates to ensure it's available
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.status === 'complete' && tab.url && !tab.url.startsWith('chrome://')) {
+  if (changeInfo.status === 'complete' && tab.url && (tab.url.startsWith('http://') || tab.url.startsWith('https://'))) {
     chrome.scripting.executeScript({
       target: { tabId: tabId },
       files: [contentScript],
