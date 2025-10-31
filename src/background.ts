@@ -1,25 +1,30 @@
+
 // src/background.ts
 import './modules/ai-types';
-import { getSemanticTerms, initializeAiSession, getDescriptiveMatches } from './modules/semantic-engine';
 import contentScript from './content?script';
 
+let offscreenDocumentPath = 'src/offscreen.html';
+
+async function hasOffscreenDocument() {
+    // @ts-ignore
+    const clients = await self.clients.matchAll();
+    return clients.some(client => client.url.endsWith(offscreenDocumentPath));
+}
+
+async function setupOffscreenDocument() {
+    if (await hasOffscreenDocument()) {
+        return;
+    }
+    await chrome.offscreen.createDocument({
+        url: offscreenDocumentPath,
+        reasons: [chrome.offscreen.Reason.LOCAL_STORAGE],
+        justification: 'To access the chrome.ai API which is not available in service workers'
+    });
+}
+
 // AI Session Pre-warming
-chrome.runtime.onStartup.addListener(() => {
-  initializeAiSession();
-  if (chrome.ai) {
-    chrome.ai.canCreateTextSession().then(status => {
-      console.log('AI Text Session status on startup:', status);
-    });
-  }
-});
-chrome.runtime.onInstalled.addListener(() => {
-  initializeAiSession();
-  if (chrome.ai) {
-    chrome.ai.canCreateTextSession().then(status => {
-      console.log('AI Text Session status on install:', status);
-    });
-  }
-});
+chrome.runtime.onStartup.addListener(() => setupOffscreenDocument());
+chrome.runtime.onInstalled.addListener(() => setupOffscreenDocument());
 
 // Toggle UI on command
 chrome.commands.onCommand.addListener(async (command) => {
@@ -57,83 +62,12 @@ let descriptiveMatchesController = new AbortController();
 
 // AI Message Listener
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.type === 'getSemanticTerms') {
-    // Abort any previous request and create a new controller
-    semanticTermsController.abort();
-    semanticTermsController = new AbortController();
-
-    getSemanticTerms(request.term, request.pageContent, { signal: semanticTermsController.signal })
-      .then(sendResponse)
-      .catch(error => {
-        if (error.name !== 'AbortError') {
-          console.error("Error getting semantic terms:", error);
-          sendResponse(null); // Or some default error response
-        }
-        // If it is an AbortError, we don't need to send a response.
-      });
-    return true; // Indicates we will respond asynchronously
-  }
-
-  if (request.type === 'getDescriptiveMatches') {
-    // Abort any previous request and create a new controller
-    descriptiveMatchesController.abort();
-    descriptiveMatchesController = new AbortController();
-
+  if (request.type === 'getSemanticTerms' || request.type === 'getDescriptiveMatches' || request.type === 'extractImageInfo') {
     (async () => {
-      const { pageContent, description } = request;
-      const chunks = pageContent.match(/[\s\S]{1,2000}/g) || [];
-      let allMatches = [];
-
-      try {
-        for (const chunk of chunks) {
-          const matches = await getDescriptiveMatches(chunk, description, { signal: descriptiveMatchesController.signal });
-          if (matches) {
-            allMatches = allMatches.concat(matches);
-          }
-        }
-        sendResponse(allMatches);
-      } catch (error) {
-        if (error.name === 'AbortError' || (error instanceof DOMException && error.name === 'AbortError')) {
-          console.log('Deep scan was cancelled.'); // Gracefully handle cancellation
-        } else {
-          console.error("Error in descriptive matches loop:", error);
-          sendResponse(null);
-        }
-      }
-    })();
-    return true; // Indicates we will respond asynchronously
-  }
-
-  if (request.type === 'extractImageInfo') {
-    (async () => {
-      try {
-        if (await chrome.ai.canCreateTextSession() !== 'readily') {
-          console.log('[Findable] AI Text Session not available.');
-          sendResponse({ error: 'AI not available' });
-          return;
-        }
-
-        const session = await chrome.ai.createTextSession();
-        const { imageData, prompt } = request;
-
-        const reader = new FileReader();
-        reader.onload = async () => {
-            const base64ImageData = reader.result;
-            const result = await session.prompt(`data:image/jpeg;base64,${base64ImageData} ${prompt}`);
-            sendResponse(result);
-        };
-        reader.onerror = (error) => {
-            console.error("FileReader error:", error);
-            sendResponse({ error: "Failed to read image data." });
-        };
-        reader.readAsDataURL(imageData);
-
-      } catch (error) {
-        console.error("Error extracting image info:", error);
-        sendResponse({ error: 'Failed to extract image info' });
-      }
+        await setupOffscreenDocument();
+        const response = await chrome.runtime.sendMessage(request);
+        sendResponse(response);
     })();
     return true;
   }
 });
-

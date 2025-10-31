@@ -8,6 +8,11 @@ const sessionCache = new Map<string, SemanticTerms>();
 export async function initializeAiSession(): Promise<void> {
   if (session) return;
 
+  if (typeof chrome === 'undefined' || !chrome.ai) {
+    console.error("The chrome.ai API is not available. AI features will be disabled.");
+    return;
+  }
+
   try {
     const availability = await chrome.ai.canCreateTextSession();
     if (availability === 'readily' || availability === 'after-download') {
