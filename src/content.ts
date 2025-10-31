@@ -113,22 +113,19 @@ function toggleFindableUI() {
       searchBar.showScanMoreButton(false);
 
       const pageText = iframeTextContent || extractPdfText() || document.body.innerText;
-      const chunks = pageText.match(/[\s\S]{1,2000}/g) || [];
-      let allMatches: DescriptiveMatch[] = [];
-
-      for (const chunk of chunks) {
-        if (searchId !== latestSearchId) return;
-        const matches: DescriptiveMatch[] = await chrome.runtime.sendMessage({
-          type: 'getDescriptiveMatches',
-          textChunk: chunk,
-          description
-        });
-        if (matches) {
-          allMatches = allMatches.concat(matches);
-        }
-      }
       
+      const allMatches: DescriptiveMatch[] = await chrome.runtime.sendMessage({
+        type: 'getDescriptiveMatches',
+        pageContent: pageText,
+        description
+      });
+
       if (searchId !== latestSearchId) return;
+      if (!allMatches) {
+        searchBar.setLoading(false);
+        searchBar.showScanMoreButton(true);
+        return;
+      }
 
       const sentencesToHighlight = allMatches.map(m => ({ word: m.matchingSentence, score: m.relevanceScore }));
       const total = highlightCategorized(

@@ -45,7 +45,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   if (request.type === 'getDescriptiveMatches') {
-    getDescriptiveMatches(request.textChunk, request.description).then(sendResponse);
+    (async () => {
+      const { pageContent, description } = request;
+      const chunks = pageContent.match(/[\s\S]{1,2000}/g) || [];
+      let allMatches = [];
+
+      for (const chunk of chunks) {
+        // NOTE: We're not passing sender.tab.id to the AI, so no cancellation signal is needed yet.
+        const matches = await getDescriptiveMatches(chunk, description);
+        if (matches) {
+          allMatches = allMatches.concat(matches);
+        }
+      }
+      sendResponse(allMatches);
+    })();
     return true; // Indicates we will respond asynchronously
   }
 });
