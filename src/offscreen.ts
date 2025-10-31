@@ -3,6 +3,10 @@
 import { initializeAiSession, getSemanticTerms, getDescriptiveMatches } from './modules/semantic-engine';
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.target !== 'offscreen') {
+    return;
+  }
+
   if (request.type === 'getSemanticTerms') {
     getSemanticTerms(request.term, request.pageContent, { signal: new AbortController().signal })
       .then(sendResponse)

@@ -3,28 +3,34 @@
 import './modules/ai-types';
 import contentScript from './content?script';
 
-let offscreenDocumentPath = 'src/offscreen.html';
+const OFFSCREEN_DOCUMENT_PATH = 'src/offscreen.html';
 
-async function hasOffscreenDocument() {
-    // @ts-ignore
-    const clients = await self.clients.matchAll();
-    return clients.some(client => client.url.endsWith(offscreenDocumentPath));
-}
+let creating: Promise<void> | null; // A promise that resolves when the offscreen document is created
 
-async function setupOffscreenDocument() {
-    if (await hasOffscreenDocument()) {
-        return;
-    }
-    await chrome.offscreen.createDocument({
-        url: offscreenDocumentPath,
-        reasons: [chrome.offscreen.Reason.LOCAL_STORAGE],
-        justification: 'To access the chrome.ai API which is not available in service workers'
+async function setupOffscreenDocument(path: string) {
+  // Check if we have an existing document.
+  // @ts-ignore
+  if (await chrome.offscreen.hasDocument()) {
+    return;
+  }
+
+  // Create the document if we don't have one.
+  if (creating) {
+    await creating;
+  } else {
+    creating = chrome.offscreen.createDocument({
+      url: path,
+      reasons: [chrome.offscreen.Reason.LOCAL_STORAGE],
+      justification: 'To access the chrome.ai API which is not available in service workers',
     });
+    await creating;
+    creating = null;
+  }
 }
 
 // AI Session Pre-warming
-chrome.runtime.onStartup.addListener(() => setupOffscreenDocument());
-chrome.runtime.onInstalled.addListener(() => setupOffscreenDocument());
+chrome.runtime.onStartup.addListener(() => setupOffscreenDocument(OFFSCREEN_DOCUMENT_PATH));
+chrome.runtime.onInstalled.addListener(() => setupOffscreenDocument(OFFSCREEN_DOCUMENT_PATH));
 
 // Toggle UI on command
 chrome.commands.onCommand.addListener(async (command) => {
@@ -56,17 +62,14 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   }
 });
 
-// Abort controllers to cancel in-progress AI requests
-let semanticTermsController = new AbortController();
-let descriptiveMatchesController = new AbortController();
-
 // AI Message Listener
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'getSemanticTerms' || request.type === 'getDescriptiveMatches' || request.type === 'extractImageInfo') {
     (async () => {
-        await setupOffscreenDocument();
-        const response = await chrome.runtime.sendMessage(request);
-        sendResponse(response);
+      await setupOffscreenDocument(OFFSCREEN_DOCUMENT_PATH);
+      // @ts-ignore
+      const response = await chrome.runtime.sendMessage({ ...request, target: 'offscreen' });
+      sendResponse(response);
     })();
     return true;
   }
