@@ -17,9 +17,11 @@ const createPersistentStore = <T>(key: string, startValue: T): Writable<T> => {
   const { subscribe, set, update } = writable<T>(startValue);
 
   if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-    chrome.storage.local.get(key).then(value => {
-      if (value && value[key] !== undefined) {
-        set(value[key]);
+    chrome.storage.local.get(key).then(result => {
+      if (result && result[key] !== undefined) {
+        // Merge stored settings with defaults to ensure new properties are added
+        const mergedSettings = { ...startValue, ...result[key] };
+        set(mergedSettings);
       }
     });
   }

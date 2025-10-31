@@ -348,8 +348,13 @@ function toggleFindableUI() {
   }
 }
 
-chrome.runtime.onMessage.addListener((request) => {
-  if (request.type === 'toggle-findable-ui') {
-    toggleFindableUI();
-  }
-});
+// Ensure the script's main logic runs only once
+if (!(window as any).findableContentScriptLoaded) {
+  (window as any).findableContentScriptLoaded = true;
+
+  chrome.runtime.onMessage.addListener((request) => {
+    if (request.type === 'toggle-findable-ui') {
+      toggleFindableUI();
+    }
+  });
+}

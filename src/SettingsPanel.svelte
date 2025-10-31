@@ -37,7 +37,7 @@
         step="0.05"
         bind:value={$appSettings.relevanceThreshold}
       />
-      <span>{$appSettings.relevanceThreshold.toFixed(2)}</span>
+      <span>{typeof $appSettings.relevanceThreshold === 'number' ? $appSettings.relevanceThreshold.toFixed(2) : '...'}</span>
     </div>
   {/if}
 </div>
