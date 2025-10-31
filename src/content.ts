@@ -80,6 +80,7 @@ function toggleFindableUI() {
     let latestSearchId = 0;
     let iframeTextContent = '';
     let currentDeepScanTerm = '';
+    let allMatches: DescriptiveMatch[] = [];
 
     const predictiveSmartSearch = debounce(async (term: string, searchId: number) => {
       searchBar.setLoading(true);
@@ -116,28 +117,27 @@ function toggleFindableUI() {
       searchBar.showScanMoreButton(false);
 
       const pageText = iframeTextContent || extractPdfText() || document.body.innerText;
-      
-      const allMatches: DescriptiveMatch[] = await chrome.runtime.sendMessage({
+
+      const newMatches: DescriptiveMatch[] = await chrome.runtime.sendMessage({
         type: 'getDescriptiveMatches',
         pageContent: pageText,
         description
       });
 
       if (searchId !== latestSearchId) return;
-      if (!allMatches) {
+      if (!newMatches) {
         searchBar.setLoading(false);
         searchBar.showScanMoreButton(true);
         return;
       }
 
+      allMatches = allMatches.concat(newMatches);
+
       const threshold = get(appSettings).relevanceThreshold;
       const filteredMatches = allMatches.filter(m => m.relevanceScore >= threshold);
 
       const sentencesToHighlight = filteredMatches.map(m => ({ word: m.matchingSentence, score: m.relevanceScore }));
-      const total = highlightCategorized(
-        { original: [], semanticMatches: sentencesToHighlight, isSentence: true },
-        { append: isSubsequentScan }
-      );
+      const total = highlightCategorized({ original: [], semanticMatches: sentencesToHighlight, isSentence: true });
 
       searchBar.setResults(total, total > 0 ? 0 : -1);
       searchBar.setLoading(false);
@@ -170,13 +170,21 @@ function toggleFindableUI() {
     });
 
     searchBar.$on('scan_more', () => {
-      const scrollContainer = document.querySelector('#viewerContainer') || window;
-      scrollContainer.scrollBy(0, window.innerHeight * 1.5);
+      const scrollContainer = document.querySelector('#viewerContainer') || document.documentElement;
+      const beforeScroll = scrollContainer.scrollTop;
+
+      scrollContainer.scrollBy({ top: window.innerHeight * 1.5, behavior: 'smooth' });
 
       // A small delay to allow new content to render after scroll
       setTimeout(() => {
-        if (currentDeepScanTerm) {
-          performDeepScan(currentDeepScanTerm, latestSearchId, true);
+        const afterScroll = scrollContainer.scrollTop;
+        if (afterScroll > beforeScroll) {
+          if (currentDeepScanTerm) {
+            performDeepScan(currentDeepScanTerm, latestSearchId, true);
+          }
+        } else {
+          // End of page reached
+          searchBar.showScanMoreButton(false);
         }
       }, 500);
     });
@@ -230,6 +238,7 @@ function toggleFindableUI() {
       }
       
       if (mode === 'deep') {
+        allMatches = []; // Reset for new deep scan
         currentDeepScanTerm = term;
         performDeepScan(term, currentSearchId);
       }

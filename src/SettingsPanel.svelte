@@ -90,6 +90,21 @@
   }
   .slider-container input[type="range"] {
     flex-grow: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 5px;
+    background: rgba(128, 128, 128, 0.5);
+    border-radius: 5px;
+    outline: none;
+  }
+  .slider-container input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 15px;
+    height: 15px;
+    background: rgba(200, 200, 200, 0.8);
+    border-radius: 50%;
+    cursor: pointer;
   }
   .slider-container span {
     font-size: 0.8rem;
