@@ -79,11 +79,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         }
         sendResponse(allMatches);
       } catch (error) {
-        if (error.name !== 'AbortError') {
+        if (error.name === 'AbortError' || (error instanceof DOMException && error.name === 'AbortError')) {
+          console.log('Deep scan was cancelled.'); // Gracefully handle cancellation
+        } else {
           console.error("Error in descriptive matches loop:", error);
-          sendResponse(null); // Or some default error response
+          sendResponse(null);
         }
-        // If it is an AbortError, the loop is stopped, and we don't send a response.
       }
     })();
     return true; // Indicates we will respond asynchronously
