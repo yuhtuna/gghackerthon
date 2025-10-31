@@ -246,11 +246,14 @@ function toggleFindableUI() {
       if (get(appSettings).extractImageInfo) {
         console.log('[Findable] Image extraction enabled.');
         document.querySelectorAll('img').forEach(async (img) => {
+          if (!img.src || !img.src.startsWith('http')) {
+            return;
+          }
           try {
             // Fetch the image and get it as a blob
             const response = await fetch(img.src);
             if (!response.ok) {
-                console.warn(`Could not fetch image: ${img.src}`);
+                // Silently ignore failed fetches for now
                 return;
             }
             const blob = await response.blob();
@@ -264,8 +267,8 @@ function toggleFindableUI() {
 
             console.log(`[Findable] Analysis for ${img.src}:`, analysis);
 
-          } catch (error)            {
-            console.error(`[Findable] Failed to process image ${img.src}`, error);
+          } catch (error) {
+              // Silently ignore failed fetches
           }
         });
       }

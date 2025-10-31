@@ -113,7 +113,8 @@ export async function getDescriptiveMatches(textChunk: string, description: stri
     console.log('--- AI RESPONSE (getDescriptiveMatches) ---', aiResponseString);
     const parsedResponse = parseJsonResponse<{ matches: DescriptiveMatch[] }>(aiResponseString);
     if (!parsedResponse || !Array.isArray(parsedResponse.matches)) {
-      throw new Error("Invalid or missing 'matches' array in AI response.");
+        console.warn("AI response for descriptive matches was malformed:", parsedResponse);
+        return [];
     }
     return parsedResponse.matches;
   } catch (error) {
