@@ -4,8 +4,22 @@ import { getSemanticTerms, initializeAiSession, getDescriptiveMatches } from './
 import contentScript from './content?script';
 
 // AI Session Pre-warming
-chrome.runtime.onStartup.addListener(() => initializeAiSession());
-chrome.runtime.onInstalled.addListener(() => initializeAiSession());
+chrome.runtime.onStartup.addListener(() => {
+  initializeAiSession();
+  if (chrome.ai) {
+    chrome.ai.canCreateTextSession().then(status => {
+      console.log('AI Text Session status on startup:', status);
+    });
+  }
+});
+chrome.runtime.onInstalled.addListener(() => {
+  initializeAiSession();
+  if (chrome.ai) {
+    chrome.ai.canCreateTextSession().then(status => {
+      console.log('AI Text Session status on install:', status);
+    });
+  }
+});
 
 // Toggle UI on command
 chrome.commands.onCommand.addListener(async (command) => {
