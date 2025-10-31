@@ -247,18 +247,10 @@ function toggleFindableUI() {
         console.log('[Findable] Image extraction enabled.');
         document.querySelectorAll('img').forEach(async (img) => {
           try {
-            // Fetch the image and get it as a blob
-            const response = await fetch(img.src);
-            if (!response.ok) {
-                console.warn(`Could not fetch image: ${img.src}`);
-                return;
-            }
-            const blob = await response.blob();
-
-            // Send blob to background script for analysis
+            // Send image URL to background script for analysis
             const analysis = await chrome.runtime.sendMessage({
               type: 'extractImageInfo',
-              imageData: blob,
+              imageUrl: img.src,
               prompt: term,
             });
 

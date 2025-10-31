@@ -100,19 +100,28 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         }
 
         const session = await chrome.ai.createTextSession();
-        const { imageData, prompt } = request;
+        const { imageUrl, prompt } = request;
+
+        // Fetch the image from the URL
+        const response = await fetch(imageUrl);
+        if (!response.ok) {
+          console.warn(`Could not fetch image: ${imageUrl}`);
+          sendResponse({ error: `Failed to fetch image: ${response.statusText}` });
+          return;
+        }
+        const blob = await response.blob();
 
         const reader = new FileReader();
         reader.onload = async () => {
-            const base64ImageData = reader.result;
-            const result = await session.prompt(`data:image/jpeg;base64,${base64ImageData} ${prompt}`);
+            const base64ImageData = (reader.result as string).split(',')[1];
+            const result = await session.prompt(`data:${blob.type};base64,${base64ImageData} ${prompt}`);
             sendResponse(result);
         };
         reader.onerror = (error) => {
             console.error("FileReader error:", error);
             sendResponse({ error: "Failed to read image data." });
         };
-        reader.readAsDataURL(imageData);
+        reader.readAsDataURL(blob);
 
       } catch (error) {
         console.error("Error extracting image info:", error);
