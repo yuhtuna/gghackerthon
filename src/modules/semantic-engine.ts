@@ -30,14 +30,14 @@ export async function initializeAiSession() {
   }
 }
 
-function parseJsonResponse(raw: string): Partial<SemanticTerms> | null {
+function parseJsonResponse<T>(raw: string): Partial<T> | null {
   if (!raw) return null;
   const firstBrace = raw.indexOf('{');
   const lastBrace = raw.lastIndexOf('}');
   if (firstBrace === -1 || lastBrace === -1 || lastBrace < firstBrace) { return null; }
   const jsonString = raw.slice(firstBrace, lastBrace + 1);
   try {
-    return JSON.parse(jsonString);
+    return JSON.parse(jsonString) as Partial<T>;
   } catch (error) {
     return null;
   }
@@ -72,7 +72,7 @@ export async function getSemanticTerms(term: string, pageContent: string, option
   try {
     const aiResponseString = await session.prompt(prompt, options);
     console.log('--- AI RESPONSE (getSemanticTerms) ---', aiResponseString);
-    const parsedResponse = parseJsonResponse(aiResponseString);
+    const parsedResponse = parseJsonResponse<SemanticTerms>(aiResponseString);
     if (!parsedResponse) throw new Error("JSON parsing failed.");
     
     const result: SemanticTerms = {
@@ -111,7 +111,7 @@ export async function getDescriptiveMatches(textChunk: string, description: stri
   try {
     const aiResponseString = await session.prompt(prompt, options);
     console.log('--- AI RESPONSE (getDescriptiveMatches) ---', aiResponseString);
-    const parsedResponse = parseJsonResponse(aiResponseString);
+    const parsedResponse = parseJsonResponse<{ matches: DescriptiveMatch[] }>(aiResponseString);
     if (!parsedResponse || !Array.isArray(parsedResponse.matches)) {
       throw new Error("Invalid or missing 'matches' array in AI response.");
     }
