@@ -1,32 +1,23 @@
+
 // src/modules/semantic-engine.ts
-import './ai-types';
+import type { DescriptiveMatch, SemanticMatch, SemanticTerms } from './ai-types';
 
-// Simplified to reflect the focus on synonyms and related words
-export interface SemanticMatch {
-  word: string;
-  score: number; // Score from 0.0 to 1.0
-}
-
-export interface SemanticTerms {
-  correctedTerm: string;
-  semanticMatches: SemanticMatch[];
-}
-
-let session: LanguageModelSession | null = null;
+let session: chrome.ai.TextSession | null = null;
 const sessionCache = new Map<string, SemanticTerms>();
 
-export async function initializeAiSession() {
+export async function initializeAiSession(): Promise<void> {
   if (session) return;
-  if (typeof globalThis.LanguageModel === 'undefined') {
-    console.error("Chrome's built-in AI API is not available.");
-    return;
-  }
-  const availability = await globalThis.LanguageModel.availability();
-  if (availability === 'readily' || availability === 'available') {
-    session = await globalThis.LanguageModel.create();
-    console.log("AI session initialized successfully!");
-  } else {
-    console.error("The on-device model is not ready:", availability);
+
+  try {
+    const availability = await chrome.ai.canCreateTextSession();
+    if (availability === 'readily' || availability === 'after-download') {
+      session = await chrome.ai.createTextSession();
+      console.log("AI session initialized successfully!");
+    } else {
+      console.error("The on-device model is not ready:", availability);
+    }
+  } catch (error) {
+    console.error("Error initializing AI session:", error);
   }
 }
 
@@ -44,7 +35,7 @@ function parseJsonResponse<T>(raw: string): Partial<T> | null {
 }
 
 export async function getSemanticTerms(term: string, pageContent: string, options?: { signal: AbortSignal }): Promise<SemanticTerms> {
-  const cacheKey = `${term}-${pageContent.substring(0, 500)}`; // Create a more robust cache key
+  const cacheKey = `${term}-${pageContent.substring(0, 500)}`;
   if (sessionCache.has(cacheKey)) {
     return sessionCache.get(cacheKey)!;
   }
@@ -54,7 +45,6 @@ export async function getSemanticTerms(term: string, pageContent: string, option
     if (!session) return { correctedTerm: term, semanticMatches: [] };
   }
 
-  // --- REVISED, CONTEXT-AWARE PROMPT ---
   const prompt = `
     Analyze the following text content from a webpage:
     ---
@@ -67,11 +57,8 @@ export async function getSemanticTerms(term: string, pageContent: string, option
     Respond with ONLY the raw JSON.
   `;
 
-  console.log('--- AI PROMPT (getSemanticTerms) ---', prompt);
-
   try {
     const aiResponseString = await session.prompt(prompt, options);
-    console.log('--- AI RESPONSE (getSemanticTerms) ---', aiResponseString);
     const parsedResponse = parseJsonResponse<SemanticTerms>(aiResponseString);
     if (!parsedResponse) throw new Error("JSON parsing failed.");
     
@@ -85,6 +72,10 @@ export async function getSemanticTerms(term: string, pageContent: string, option
 
   } catch (error) {
     console.error("Error processing AI response:", error);
+    // If the session is destroyed, try to re-initialize it for the next call.
+    if (error instanceof Error && error.message.includes('destroyed')) {
+      session = null;
+    }
     return { correctedTerm: term, semanticMatches: [] };
   }
 }
@@ -106,11 +97,8 @@ export async function getDescriptiveMatches(textChunk: string, description: stri
     Respond with ONLY the raw JSON.
   `;
 
-  console.log('--- AI PROMPT (getDescriptiveMatches) ---', prompt);
-
   try {
     const aiResponseString = await session.prompt(prompt, options);
-    console.log('--- AI RESPONSE (getDescriptiveMatches) ---', aiResponseString);
     const parsedResponse = parseJsonResponse<{ matches: DescriptiveMatch[] }>(aiResponseString);
     if (!parsedResponse || !Array.isArray(parsedResponse.matches)) {
         console.warn("AI response for descriptive matches was malformed:", parsedResponse);
@@ -119,6 +107,9 @@ export async function getDescriptiveMatches(textChunk: string, description: stri
     return parsedResponse.matches;
   } catch (error) {
     console.error("Error getting descriptive matches:", error);
+    if (error instanceof Error && error.message.includes('destroyed')) {
+      session = null;
+    }
     return [];
   }
 }
