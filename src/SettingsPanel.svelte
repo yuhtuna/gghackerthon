@@ -25,6 +25,21 @@
     </button>
   </div>
   <p class="mode-description">{descriptions[$appSettings.searchMode]}</p>
+
+  {#if $appSettings.searchMode === 'basic' || $appSettings.searchMode === 'deep'}
+    <div class="slider-container">
+      <label for="relevance">Relevance</label>
+      <input
+        type="range"
+        id="relevance"
+        min="0.1"
+        max="1"
+        step="0.05"
+        bind:value={$appSettings.relevanceThreshold}
+      />
+      <span>{$appSettings.relevanceThreshold.toFixed(2)}</span>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -62,5 +77,24 @@
     color: #888;
     text-align: center;
     margin: 12px 0 0;
+  }
+  .slider-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 15px;
+  }
+  .slider-container label {
+    font-size: 0.8rem;
+    color: #aaa;
+  }
+  .slider-container input[type="range"] {
+    flex-grow: 1;
+  }
+  .slider-container span {
+    font-size: 0.8rem;
+    color: #888;
+    width: 30px;
+    text-align: right;
   }
 </style>

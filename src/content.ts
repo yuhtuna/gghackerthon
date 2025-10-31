@@ -93,9 +93,12 @@ function toggleFindableUI() {
       if (searchId !== latestSearchId) return;
 
       if (results && results.semanticMatches) {
+        const threshold = get(appSettings).relevanceThreshold;
+        const filteredMatches = results.semanticMatches.filter(m => m.score >= threshold);
+
         const newTotal = highlightCategorized({
           original: [results.correctedTerm || term],
-          semanticMatches: results.semanticMatches,
+          semanticMatches: filteredMatches,
         });
 
         const mainFrame = frameResults.find(f => f.frame === window);
@@ -127,7 +130,10 @@ function toggleFindableUI() {
         return;
       }
 
-      const sentencesToHighlight = allMatches.map(m => ({ word: m.matchingSentence, score: m.relevanceScore }));
+      const threshold = get(appSettings).relevanceThreshold;
+      const filteredMatches = allMatches.filter(m => m.relevanceScore >= threshold);
+
+      const sentencesToHighlight = filteredMatches.map(m => ({ word: m.matchingSentence, score: m.relevanceScore }));
       const total = highlightCategorized(
         { original: [], semanticMatches: sentencesToHighlight, isSentence: true },
         { append: isSubsequentScan }

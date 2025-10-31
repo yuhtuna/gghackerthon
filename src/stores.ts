@@ -5,10 +5,12 @@ export type SearchMode = 'find' | 'basic' | 'deep';
 
 export interface AppSettings {
   searchMode: SearchMode;
+  relevanceThreshold: number;
 }
 
 const defaultSettings: AppSettings = {
   searchMode: 'basic', // 'basic' is the new default mode
+  relevanceThreshold: 0.5,
 };
 
 const createPersistentStore = <T>(key: string, startValue: T): Writable<T> => {
