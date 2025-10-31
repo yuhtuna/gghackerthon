@@ -40,12 +40,76 @@
       <span>{typeof $appSettings.relevanceThreshold === 'number' ? $appSettings.relevanceThreshold.toFixed(2) : '...'}</span>
     </div>
   {/if}
+
+  <div class="toggle-container">
+    <label for="image-toggle">Images</label>
+    <label class="switch">
+      <input type="checkbox" id="image-toggle" bind:checked={$appSettings.extractImageInfo}>
+      <span class="slider round"></span>
+    </label>
+  </div>
 </div>
 
 <style>
   .settings-panel {
     padding: 15px 20px;
     border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  .toggle-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 15px;
+  }
+  .toggle-container label {
+    font-size: 0.8rem;
+    color: #aaa;
+  }
+  .switch {
+    position: relative;
+    display: inline-block;
+    width: 34px;
+    height: 20px;
+  }
+  .switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+  }
+  .slider:before {
+    position: absolute;
+    content: "";
+    height: 12px;
+    width: 12px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+  }
+  input:checked + .slider {
+    background-color: #2563eb;
+  }
+  input:focus + .slider {
+    box-shadow: 0 0 1px #2563eb;
+  }
+  input:checked + .slider:before {
+    transform: translateX(14px);
+  }
+  .slider.round {
+    border-radius: 20px;
+  }
+  .slider.round:before {
+    border-radius: 50%;
   }
   .mode-selector {
     display: flex;
@@ -93,7 +157,7 @@
     -webkit-appearance: none;
     appearance: none;
     height: 6px;
-    background: rgba(60, 130, 246, 0.2);
+    background: rgba(37, 99, 235, 0.3);
     border-radius: 3px;
     outline: none;
     transition: background 0.3s;
@@ -101,12 +165,11 @@
   .slider-container input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 16px;
-    height: 16px;
-    background: #3b82f6;
+    width: 15px;
+    height: 15px;
+    background: #2563eb;
     border-radius: 50%;
     cursor: pointer;
-    border: 2px solid #fff;
     transition: transform 0.2s ease;
   }
   .slider-container input[type="range"]:hover::-webkit-slider-thumb {

@@ -242,6 +242,33 @@ function toggleFindableUI() {
         currentDeepScanTerm = term;
         performDeepScan(term, currentSearchId);
       }
+
+      if (get(appSettings).extractImageInfo) {
+        console.log('[Findable] Image extraction enabled.');
+        document.querySelectorAll('img').forEach(async (img) => {
+          try {
+            // Fetch the image and get it as a blob
+            const response = await fetch(img.src);
+            if (!response.ok) {
+                console.warn(`Could not fetch image: ${img.src}`);
+                return;
+            }
+            const blob = await response.blob();
+
+            // Send blob to background script for analysis
+            const analysis = await chrome.runtime.sendMessage({
+              type: 'extractImageInfo',
+              imageData: blob,
+              prompt: term,
+            });
+
+            console.log(`[Findable] Analysis for ${img.src}:`, analysis);
+
+          } catch (error)            {
+            console.error(`[Findable] Failed to process image ${img.src}`, error);
+          }
+        });
+      }
     });
 
     
