@@ -2,8 +2,7 @@
 // src/background.ts
 import './modules/ai-types';
 import contentScript from './content?script';
-
-const OFFSCREEN_DOCUMENT_PATH = 'src/offscreen.html';
+import offscreenDocumentUrl from './offscreen.html?url';
 
 let creating: Promise<void> | null; // A promise that resolves when the offscreen document is created
 
@@ -29,8 +28,8 @@ async function setupOffscreenDocument(path: string) {
 }
 
 // AI Session Pre-warming
-chrome.runtime.onStartup.addListener(() => setupOffscreenDocument(OFFSCREEN_DOCUMENT_PATH));
-chrome.runtime.onInstalled.addListener(() => setupOffscreenDocument(OFFSCREEN_DOCUMENT_PATH));
+chrome.runtime.onStartup.addListener(() => setupOffscreenDocument(offscreenDocumentUrl));
+chrome.runtime.onInstalled.addListener(() => setupOffscreenDocument(offscreenDocumentUrl));
 
 // Toggle UI on command
 chrome.commands.onCommand.addListener(async (command) => {
@@ -66,7 +65,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'getSemanticTerms' || request.type === 'getDescriptiveMatches' || request.type === 'extractImageInfo') {
     (async () => {
-      await setupOffscreenDocument(OFFSCREEN_DOCUMENT_PATH);
+      await setupOffscreenDocument(offscreenDocumentUrl);
       // @ts-ignore
       const response = await chrome.runtime.sendMessage({ ...request, target: 'offscreen' });
       sendResponse(response);
