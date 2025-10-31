@@ -37,27 +37,54 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   }
 });
 
+// Abort controllers to cancel in-progress AI requests
+let semanticTermsController = new AbortController();
+let descriptiveMatchesController = new AbortController();
+
 // AI Message Listener
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'getSemanticTerms') {
-    getSemanticTerms(request.term, request.pageContent).then(sendResponse);
+    // Abort any previous request and create a new controller
+    semanticTermsController.abort();
+    semanticTermsController = new AbortController();
+
+    getSemanticTerms(request.term, request.pageContent, { signal: semanticTermsController.signal })
+      .then(sendResponse)
+      .catch(error => {
+        if (error.name !== 'AbortError') {
+          console.error("Error getting semantic terms:", error);
+          sendResponse(null); // Or some default error response
+        }
+        // If it is an AbortError, we don't need to send a response.
+      });
     return true; // Indicates we will respond asynchronously
   }
 
   if (request.type === 'getDescriptiveMatches') {
+    // Abort any previous request and create a new controller
+    descriptiveMatchesController.abort();
+    descriptiveMatchesController = new AbortController();
+
     (async () => {
       const { pageContent, description } = request;
       const chunks = pageContent.match(/[\s\S]{1,2000}/g) || [];
       let allMatches = [];
 
-      for (const chunk of chunks) {
-        // NOTE: We're not passing sender.tab.id to the AI, so no cancellation signal is needed yet.
-        const matches = await getDescriptiveMatches(chunk, description);
-        if (matches) {
-          allMatches = allMatches.concat(matches);
+      try {
+        for (const chunk of chunks) {
+          const matches = await getDescriptiveMatches(chunk, description, { signal: descriptiveMatchesController.signal });
+          if (matches) {
+            allMatches = allMatches.concat(matches);
+          }
         }
+        sendResponse(allMatches);
+      } catch (error) {
+        if (error.name !== 'AbortError') {
+          console.error("Error in descriptive matches loop:", error);
+          sendResponse(null); // Or some default error response
+        }
+        // If it is an AbortError, the loop is stopped, and we don't send a response.
       }
-      sendResponse(allMatches);
     })();
     return true; // Indicates we will respond asynchronously
   }
