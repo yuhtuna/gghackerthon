@@ -223,7 +223,7 @@ function toggleFindableUI() {
         predictiveSmartSearch(term, currentSearchId);
       }
       
-      if (mode === 'deep' && term.split(' ').length > 3) {
+      if (mode === 'deep') {
         currentDeepScanTerm = term;
         performDeepScan(term, currentSearchId);
       }
