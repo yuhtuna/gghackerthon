@@ -263,7 +263,7 @@ function toggleFindableUI() {
         if (globalCurrentIndex < cumulative + frame.count) {
           const localIndex = globalCurrentIndex - cumulative;
           if (frame.frame === window) {
-            goToNext(localIndex);
+            goTo(localIndex);
           } else {
             (frame.frame as Window).postMessage({ type: 'findable-goto', index: localIndex }, '*');
           }
