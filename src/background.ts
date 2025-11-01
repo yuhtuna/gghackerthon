@@ -36,46 +36,57 @@ chrome.runtime.onInstalled.addListener(() => setupOffscreenDocument(offscreenDoc
 
 // Toggle UI on command
 chrome.commands.onCommand.addListener(async (command) => {
-  if (command !== "open-findable-search") return;
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (tab?.id) {
-    if (readyTabs.has(tab.id)) {
-        chrome.tabs.sendMessage(tab.id, { type: 'toggle-findable-ui' });
-    } else {
-        if (!messageQueue.has(tab.id)) {
-            messageQueue.set(tab.id, []);
+    if (command !== "open-findable-search") return;
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab?.id) {
+        try {
+            if (readyTabs.has(tab.id)) {
+                chrome.tabs.sendMessage(tab.id, { type: 'toggle-findable-ui' });
+            } else {
+                if (!messageQueue.has(tab.id)) {
+                    messageQueue.set(tab.id, []);
+                }
+                messageQueue.get(tab.id)?.push({ type: 'toggle-findable-ui' });
+                chrome.scripting.executeScript({
+                    target: { tabId: tab.id },
+                    files: [contentScript],
+                });
+            }
+        } catch (error) {
+            console.error("Failed to send toggle-findable-ui message:", error);
         }
-        messageQueue.get(tab.id)?.push({ type: 'toggle-findable-ui' });
-        chrome.scripting.executeScript({
-            target: { tabId: tab.id },
-            files: [contentScript],
-        });
     }
-  }
 });
 
 // Inject content script on tab updates to ensure it's available
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.status === 'complete' && tab.url && (tab.url.startsWith('http://') || tab.url.startsWith('https://'))) {
-    chrome.scripting.executeScript({
-      target: { tabId: tabId },
-      files: [contentScript],
-    }).catch(err => console.log('Error injecting script:', err));
-  }
+    if (changeInfo.status === 'loading') {
+        readyTabs.delete(tabId);
+        messageQueue.delete(tabId);
+    } else if (changeInfo.status === 'complete' && tab.url && (tab.url.startsWith('http://') || tab.url.startsWith('https://'))) {
+        chrome.scripting.executeScript({
+            target: { tabId: tabId },
+            files: [contentScript],
+        }).catch(err => console.log('Error injecting script:', err));
+    }
 });
 
 // AI Message Listener
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.type === 'content-script-ready' && sender.tab?.id) {
-    readyTabs.add(sender.tab.id);
-    if (messageQueue.has(sender.tab.id)) {
-        messageQueue.get(sender.tab.id)?.forEach(message => {
-            chrome.tabs.sendMessage(sender.tab.id, message);
-        });
-        messageQueue.delete(sender.tab.id);
+    if (request.type === 'content-script-ready' && sender.tab?.id) {
+        readyTabs.add(sender.tab.id);
+        if (messageQueue.has(sender.tab.id)) {
+            messageQueue.get(sender.tab.id)?.forEach(message => {
+                try {
+                    chrome.tabs.sendMessage(sender.tab.id, message);
+                } catch (error) {
+                    console.error("Failed to send queued message:", error);
+                }
+            });
+            messageQueue.delete(sender.tab.id);
+        }
+        return;
     }
-    return;
-  }
 
   if (request.type === 'getSemanticTerms' || request.type === 'getDescriptiveMatches' || request.type === 'extractImageInfo') {
     (async () => {
