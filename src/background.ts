@@ -31,6 +31,25 @@ async function setupOffscreenDocument(path: string) {
 chrome.runtime.onStartup.addListener(() => setupOffscreenDocument(offscreenDocumentUrl));
 chrome.runtime.onInstalled.addListener(() => setupOffscreenDocument(offscreenDocumentUrl));
 
+// A robust function to send a message to a tab, with retries.
+async function sendMessageToTabWithRetries(tabId: number, message: any, retries = 3, delay = 100) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            const response = await chrome.tabs.sendMessage(tabId, message);
+            if (response && response.success) {
+                return;
+            }
+        } catch (error) {
+            if (i < retries - 1) {
+                await new Promise(resolve => setTimeout(resolve, delay));
+            } else {
+                console.error("Failed to send message to tab after multiple retries:", error);
+                throw error;
+            }
+        }
+    }
+}
+
 // Toggle UI on command
 chrome.commands.onCommand.addListener(async (command) => {
   if (command !== "open-findable-search") return;
@@ -46,7 +65,7 @@ chrome.commands.onCommand.addListener(async (command) => {
         return;
       }
       // Now that we're sure the script is injected, send the message.
-      chrome.tabs.sendMessage(tab.id, { type: 'toggle-findable-ui' });
+      sendMessageToTabWithRetries(tab.id, { type: 'toggle-findable-ui' });
     });
   }
 });

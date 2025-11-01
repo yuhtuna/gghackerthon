@@ -391,9 +391,11 @@ function toggleFindableUI() {
 if (!(window as any).findableContentScriptLoaded) {
   (window as any).findableContentScriptLoaded = true;
 
-  chrome.runtime.onMessage.addListener((request) => {
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.type === 'toggle-findable-ui') {
       toggleFindableUI();
+      sendResponse({ success: true });
     }
+    return true; // Keep the message channel open for async response
   });
 }
