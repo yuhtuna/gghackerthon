@@ -69,7 +69,7 @@ function toggleFindableUI() {
       mark[class*="findable-highlight-"] { padding: 2px !important; border-radius: 3px !important; scroll-margin: 50vh !important; }
       mark.findable-highlight-current { box-shadow: 0 0 0 2px #3b82f6 !important; background-color: #3b82f6 !important; }
     `;
-    shadowRoot.appendChild(globalStyle);
+    document.head.appendChild(globalStyle);
 
     const target = document.createElement('div');
     shadowRoot.appendChild(target);
