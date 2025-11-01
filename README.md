@@ -1,43 +1,40 @@
-# Svelte + Vite
+# Findable: Your Intelligent Search Companion
 
-This template should help get you started developing with Svelte in Vite.
+Findable is a Chrome extension that revolutionizes your on-page search experience. Powered by the Gemini Nano on-device AI model, it goes beyond simple text matching to understand the context of your search and the content of the page.
 
-## Recommended IDE Setup
+## Features
 
-[VS Code](https://code.visualstudio.com/) + [Svelte](https://marketplace.visualstudio.com/items?itemName=svelte.svelte-vscode).
+- **Multiple Search Modes:**
+    - **Find:** A standard, instant search for the exact text you type.
+    - **Basic:** Finds your term plus synonyms and related words.
+    - **Deep:** Full page analysis for context, descriptions, and summaries.
+- **AI-Powered Search:** Utilizes the Gemini Nano on-device model for intelligent, context-aware search.
+- **Relevance Slider:** Fine-tune your search results to see the most relevant matches.
+- **Image Search:** Find images on the page that are semantically related to your search term.
+- **PDF Support:** Search for text within embedded PDFs.
+- **Customizable:** Adjust the search mode and relevance threshold to fit your needs.
 
-## Need an official Svelte framework?
+## Installation
 
-Check out [SvelteKit](https://github.com/sveltejs/kit#readme), which is also powered by Vite. Deploy anywhere with its serverless-first approach and adapt to various platforms, with out of the box support for TypeScript, SCSS, and Less, and easily-added support for mdsvex, GraphQL, PostCSS, Tailwind CSS, and more.
+1. Clone this repository.
+2. Install the dependencies: `npm install`
+3. Build the extension: `npm run build`
+4. Open Chrome and navigate to `chrome://extensions`.
+5. Enable "Developer mode".
+6. Click "Load unpacked" and select the `dist` directory.
 
-## Technical considerations
+## Usage
 
-**Why use this over SvelteKit?**
+1. Open any webpage.
+2. Press `Ctrl+Shift+F` (or `Command+Shift+F` on Mac) to open the Findable search bar.
+3. Select your desired search mode and adjust the relevance slider.
+4. Type your search term and press Enter.
+5. Use the next and previous buttons to navigate between the highlighted results.
 
-- It brings its own routing solution which might not be preferable for some users.
-- It is first and foremost a framework that just happens to use Vite under the hood, not a Vite app.
+## Tech Stack
 
-This template contains as little as possible to get started with Vite + Svelte, while taking into account the developer experience with regards to HMR and intellisense. It demonstrates capabilities on par with the other `create-vite` templates and is a good starting point for beginners dipping their toes into a Vite + Svelte project.
-
-Should you later need the extended capabilities and extensibility provided by SvelteKit, the template has been structured similarly to SvelteKit so that it is easy to migrate.
-
-**Why include `.vscode/extensions.json`?**
-
-Other templates indirectly recommend extensions via the README, but this file allows VS Code to prompt the user to install the recommended extension upon opening the project.
-
-**Why enable `checkJs` in the JS template?**
-
-It is likely that most cases of changing variable types in runtime are likely to be accidental, rather than deliberate. This provides advanced typechecking out of the box. Should you like to take advantage of the dynamically-typed nature of JavaScript, it is trivial to change the configuration.
-
-**Why is HMR not preserving my local component state?**
-
-HMR state preservation comes with a number of gotchas! It has been disabled by default in both `svelte-hmr` and `@sveltejs/vite-plugin-svelte` due to its often surprising behavior. You can read the details [here](https://github.com/sveltejs/svelte-hmr/tree/master/packages/svelte-hmr#preservation-of-local-state).
-
-If you have state that's important to retain within a component, consider creating an external store which would not be replaced by HMR.
-
-```js
-// store.js
-// An extremely simple external store
-import { writable } from 'svelte/store'
-export default writable(0)
-```
+- **Svelte:** A modern JavaScript framework for building user interfaces.
+- **Vite:** A fast build tool and development server.
+- **TypeScript:** A statically typed superset of JavaScript.
+- **Playwright:** A framework for end-to-end testing.
+- **Gemini Nano:** An on-device AI model for intelligent search.
