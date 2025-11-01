@@ -79,10 +79,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   if (request.type === 'getSemanticTerms' || request.type === 'getDescriptiveMatches' || request.type === 'extractImageInfo') {
     (async () => {
-      await setupOffscreenDocument(offscreenDocumentUrl);
-      // @ts-ignore
-      const response = await chrome.runtime.sendMessage({ ...request, target: 'offscreen' });
-      sendResponse(response);
+      try {
+        await setupOffscreenDocument(offscreenDocumentUrl);
+        // @ts-ignore
+        const response = await chrome.runtime.sendMessage({ ...request, target: 'offscreen' });
+        sendResponse(response);
+      } catch (error) {
+        console.error('Error forwarding message to offscreen document:', error);
+        sendResponse({ error: 'Failed to communicate with offscreen document.' });
+      }
     })();
     return true;
   }
