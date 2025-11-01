@@ -395,8 +395,8 @@ if (!(window as any).findableContentScriptLoaded) {
     if (request.type === 'toggle-findable-ui') {
       toggleFindableUI();
       sendResponse({ success: true });
+      return true;
     }
-    return true; // Keep the message channel open for async response
   });
 
   // Send a "ready" message to the background script
