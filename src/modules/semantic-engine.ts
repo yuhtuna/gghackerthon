@@ -30,6 +30,41 @@ export async function initializeAiSession() {
   }
 }
 
+/**
+ * Executes a prompt against the AI model, with built-in retry logic for session invalidation.
+ * If the session is destroyed, it re-initializes it and tries the prompt one more time.
+ */
+async function promptWithRetry(prompt: string, options?: { signal: AbortSignal }): Promise<string> {
+  if (!session) {
+    await initializeAiSession();
+    if (!session) {
+      throw new Error("AI session could not be initialized.");
+    }
+  }
+
+  try {
+    return await session.prompt(prompt, options);
+  } catch (error) {
+    // Check if the error is due to an invalidated session
+    if (error instanceof Error && error.message.includes('session has been destroyed')) {
+      console.warn("AI session was destroyed. Re-initializing and retrying...");
+
+      // Reset and re-initialize the session
+      session = null;
+      await initializeAiSession();
+      if (!session) {
+        throw new Error("AI session failed to re-initialize after being destroyed.");
+      }
+
+      // Retry the prompt once more
+      return await session.prompt(prompt, options);
+    } else {
+      // For any other error, re-throw it
+      throw error;
+    }
+  }
+}
+
 function parseJsonResponse<T>(raw: string): Partial<T> | null {
   if (!raw) return null;
   const firstBrace = raw.indexOf('{');
@@ -70,7 +105,7 @@ export async function getSemanticTerms(term: string, pageContent: string, option
   console.log('--- AI PROMPT (getSemanticTerms) ---', prompt);
 
   try {
-    const aiResponseString = await session.prompt(prompt, options);
+    const aiResponseString = await promptWithRetry(prompt, options);
     console.log('--- AI RESPONSE (getSemanticTerms) ---', aiResponseString);
     const parsedResponse = parseJsonResponse<SemanticTerms>(aiResponseString);
     if (!parsedResponse) throw new Error("JSON parsing failed.");
@@ -109,7 +144,7 @@ export async function getDescriptiveMatches(textChunk: string, description: stri
   console.log('--- AI PROMPT (getDescriptiveMatches) ---', prompt);
 
   try {
-    const aiResponseString = await session.prompt(prompt, options);
+    const aiResponseString = await promptWithRetry(prompt, options);
     console.log('--- AI RESPONSE (getDescriptiveMatches) ---', aiResponseString);
     const parsedResponse = parseJsonResponse<{ matches: DescriptiveMatch[] }>(aiResponseString);
     if (!parsedResponse || !Array.isArray(parsedResponse.matches)) {
