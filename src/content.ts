@@ -398,4 +398,7 @@ if (!(window as any).findableContentScriptLoaded) {
     }
     return true; // Keep the message channel open for async response
   });
+
+  // Send a "ready" message to the background script
+  chrome.runtime.sendMessage({ type: 'content-script-ready' });
 }

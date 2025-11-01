@@ -4,6 +4,9 @@ import './modules/ai-types';
 import contentScript from './content?script';
 import offscreenDocumentUrl from './offscreen.html?url';
 
+const readyTabs = new Set<number>();
+const messageQueue = new Map<number, any[]>();
+
 let creating: Promise<void> | null; // A promise that resolves when the offscreen document is created
 
 async function setupOffscreenDocument(path: string) {
@@ -31,42 +34,23 @@ async function setupOffscreenDocument(path: string) {
 chrome.runtime.onStartup.addListener(() => setupOffscreenDocument(offscreenDocumentUrl));
 chrome.runtime.onInstalled.addListener(() => setupOffscreenDocument(offscreenDocumentUrl));
 
-// A robust function to send a message to a tab, with retries.
-async function sendMessageToTabWithRetries(tabId: number, message: any, retries = 3, delay = 100) {
-    for (let i = 0; i < retries; i++) {
-        try {
-            const response = await chrome.tabs.sendMessage(tabId, message);
-            if (response && response.success) {
-                return;
-            }
-        } catch (error) {
-            if (i < retries - 1) {
-                await new Promise(resolve => setTimeout(resolve, delay));
-            } else {
-                console.error("Failed to send message to tab after multiple retries:", error);
-                throw error;
-            }
-        }
-    }
-}
-
 // Toggle UI on command
 chrome.commands.onCommand.addListener(async (command) => {
   if (command !== "open-findable-search") return;
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (tab?.id) {
-    // Inject the content script and send the message in the callback
-    chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      files: [contentScript],
-    }, () => {
-      if (chrome.runtime.lastError) {
-        console.log(`Could not inject script into tab ${tab.id}: ${chrome.runtime.lastError.message}`);
-        return;
-      }
-      // Now that we're sure the script is injected, send the message.
-      sendMessageToTabWithRetries(tab.id, { type: 'toggle-findable-ui' });
-    });
+    if (readyTabs.has(tab.id)) {
+        chrome.tabs.sendMessage(tab.id, { type: 'toggle-findable-ui' });
+    } else {
+        if (!messageQueue.has(tab.id)) {
+            messageQueue.set(tab.id, []);
+        }
+        messageQueue.get(tab.id)?.push({ type: 'toggle-findable-ui' });
+        chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            files: [contentScript],
+        });
+    }
   }
 });
 
@@ -82,6 +66,17 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
 // AI Message Listener
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.type === 'content-script-ready' && sender.tab?.id) {
+    readyTabs.add(sender.tab.id);
+    if (messageQueue.has(sender.tab.id)) {
+        messageQueue.get(sender.tab.id)?.forEach(message => {
+            chrome.tabs.sendMessage(sender.tab.id, message);
+        });
+        messageQueue.delete(sender.tab.id);
+    }
+    return;
+  }
+
   if (request.type === 'getSemanticTerms' || request.type === 'getDescriptiveMatches' || request.type === 'extractImageInfo') {
     (async () => {
       await setupOffscreenDocument(offscreenDocumentUrl);
