@@ -118,3 +118,37 @@ export async function getDescriptiveMatches(textChunk: string, description: stri
     return [];
   }
 }
+
+export async function analyzeImage(imageData: Blob, promptText: string): Promise<string | { error: string }> {
+  if (!session) {
+    await initializeAiSession();
+    if (!session) return { error: 'AI session not available.' };
+  }
+
+  try {
+    const reader = new FileReader();
+    const readerPromise = new Promise<string>((resolve, reject) => {
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(reader.error);
+    });
+    reader.readAsDataURL(imageData);
+    const base64ImageData = await readerPromise;
+
+    // The Gemini API expects the base64 string without the data URL prefix
+    const pureBase64 = base64ImageData.substring(base64ImageData.indexOf(',') + 1);
+
+    const result = await session.prompt([
+      { inlineData: { data: pureBase64, mimeType: 'image/jpeg' } },
+      { text: promptText },
+    ]);
+
+    return result;
+
+  } catch (error) {
+    console.error("Error analyzing image:", error);
+    if (error instanceof Error && error.message.includes('destroyed')) {
+      session = null;
+    }
+    return { error: 'Failed to analyze image.' };
+  }
+}

@@ -116,6 +116,4 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     forwardToOffscreen(request, sendResponse);
     return true;
   }
-
-  return false;
 });
