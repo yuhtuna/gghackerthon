@@ -79,11 +79,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         }
         sendResponse(allMatches);
       } catch (error) {
-        if (error.name === 'AbortError' || (error instanceof DOMException && error.name === 'AbortError')) {
-          console.log('Deep scan was cancelled.'); // Gracefully handle cancellation
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          console.log('Deep scan was cancelled.');
         } else {
-          console.error("Error in descriptive matches loop:", error);
-          sendResponse(null);
+          console.error("Error getting descriptive matches:", error);
+          sendResponse({ error: error.message });
         }
       }
     })();

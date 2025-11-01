@@ -92,21 +92,21 @@
     flex-grow: 1;
     -webkit-appearance: none;
     appearance: none;
-    height: 6px;
-    background: rgba(60, 130, 246, 0.2);
-    border-radius: 3px;
+    height: 8px;
+    background: rgba(37, 99, 235, 0.3);
+    border-radius: 4px;
     outline: none;
     transition: background 0.3s;
   }
   .slider-container input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 16px;
-    height: 16px;
-    background: #3b82f6;
+    width: 18px;
+    height: 18px;
+    background: #2563eb;
     border-radius: 50%;
     cursor: pointer;
-    border: 2px solid #fff;
+    border: none;
     transition: transform 0.2s ease;
   }
   .slider-container input[type="range"]:hover::-webkit-slider-thumb {

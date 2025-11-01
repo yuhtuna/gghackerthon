@@ -67,7 +67,7 @@ function toggleFindableUI() {
       mark.findable-highlight-semantic { background-color: rgba(134, 239, 172, var(--highlight-intensity, 0.5)) !important; color: #14532d !important; }
       mark.findable-highlight-sentence { background-color: rgba(147, 197, 253, 0.7) !important; color: #1e3a8a !important; }
       mark[class*="findable-highlight-"] { padding: 2px !important; border-radius: 3px !important; scroll-margin: 50vh !important; }
-      mark.findable-highlight-current { box-shadow: 0 0 0 2px #60a5fa !important; background-color: #60a5fa !important; }
+      mark.findable-highlight-current { box-shadow: 0 0 0 2px #3b82f6 !important; background-color: #3b82f6 !important; }
     `;
     shadowRoot.appendChild(globalStyle);
 
