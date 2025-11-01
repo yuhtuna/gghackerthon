@@ -4,7 +4,7 @@ import { initializeAiSession, getSemanticTerms, getDescriptiveMatches } from './
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.target !== 'offscreen') {
-    return;
+    return false;
   }
 
   if (request.type === 'getSemanticTerms') {
@@ -70,9 +70,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     })();
     return true;
   }
+
+  return false;
 });
 
-initializeAiSession();
-
-// Signal to the background script that the offscreen document is ready
-chrome.runtime.sendMessage({ type: 'offscreen-ready' });
+(async () => {
+  await initializeAiSession();
+  chrome.runtime.sendMessage({ type: 'offscreen-ready' });
+})();
