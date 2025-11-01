@@ -32,15 +32,15 @@ export async function initializeAiSession(): Promise<void> {
   }
 }
 
-// New function to handle image analysis
-export async function analyzeImage(imageData: Blob, prompt: string): Promise<string> {
+// New function to check for image relevance
+export async function isImageRelevant(imageData: Blob, prompt: string): Promise<boolean> {
   if (!session) {
     await initializeAiSession();
-    if (!session) return "AI session not available.";
+    if (!session) return false;
   }
 
   try {
-    // Convert blob to base64 and remove the data URL prefix
+    // Convert blob to base64
     const reader = new FileReader();
     const base64ImageData = await new Promise<string>((resolve, reject) => {
       reader.onload = () => resolve(reader.result as string);
@@ -50,21 +50,25 @@ export async function analyzeImage(imageData: Blob, prompt: string): Promise<str
 
     const pureBase64 = base64ImageData.split(',')[1];
 
-    // The prompt now includes the base64-encoded image data
+    // Create a specific prompt for a boolean-like answer
+    const aiPrompt = `Does the provided image visually represent or strongly relate to the following text: "${prompt}"? Answer with only "yes" or "no".`;
+
     const result = await session.prompt({
       data: {
         image: { data: pureBase64, mimeType: imageData.type },
-        text: prompt
+        text: aiPrompt
       }
     });
 
-    return result.text();
+    const responseText = (await result.text()).trim().toLowerCase();
+    console.log(`[Findable Semantic Engine] Image relevance check for "${prompt}". AI says: "${responseText}"`);
+    return responseText === 'yes';
   } catch (error) {
-    console.error("Error analyzing image:", error);
+    console.error("Error analyzing image relevance:", error);
     if (error instanceof Error && error.message.includes('destroyed')) {
       session = null;
     }
-    return "Failed to analyze image.";
+    return false;
   }
 }
 

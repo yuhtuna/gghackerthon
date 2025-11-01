@@ -1,6 +1,6 @@
 
 // src/offscreen.ts
-import { initializeAiSession, getSemanticTerms, getDescriptiveMatches, analyzeImage } from './modules/semantic-engine';
+import { initializeAiSession, getSemanticTerms, getDescriptiveMatches, isImageRelevant } from './modules/semantic-engine';
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.target !== 'offscreen') {
@@ -39,15 +39,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
-  if (request.type === 'extractImageInfo') {
+  if (request.type === 'checkImageRelevance') {
     (async () => {
       try {
-        const { imageData, prompt } = request;
-        const analysis = await analyzeImage(imageData, prompt);
-        sendResponse({ analysis });
+        const { imageData, prompt, imgSrc } = request;
+        const isRelevant = await isImageRelevant(imageData, prompt);
+        sendResponse({ isRelevant, imgSrc, term: prompt });
       } catch (error) {
-        console.error("Error extracting image info:", error);
-        sendResponse({ error: 'Failed to extract image info' });
+        console.error("Error checking image relevance:", error);
+        sendResponse({ isRelevant: false, imgSrc, term: prompt });
       }
     })();
     return true;

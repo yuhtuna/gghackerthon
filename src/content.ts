@@ -208,6 +208,17 @@ function toggleFindableUI() {
       }, 500);
     });
 
+    const clearImageHighlights = () => {
+      document.querySelectorAll('img').forEach(img => {
+        // Only reset if we've potentially added a style
+        if (img.style.border.includes('solid')) {
+            img.style.border = 'none';
+            img.style.padding = '0';
+            img.style.boxSizing = 'border-box';
+        }
+      });
+    };
+
     searchBar.$on('search', (event) => {
       latestSearchId++;
       const currentSearchId = latestSearchId;
@@ -215,6 +226,7 @@ function toggleFindableUI() {
       const mode = get(appSettings).searchMode;
       
       clear();
+      clearImageHighlights(); // Clear previous image highlights
       searchBar.setLoading(false);
       searchBar.showScanMoreButton(false);
 
@@ -262,37 +274,41 @@ function toggleFindableUI() {
         performDeepScan(term, currentSearchId);
       }
 
-      if (get(appSettings).extractImageInfo) {
-        console.log('[Findable] Image extraction enabled.');
+      if (get(appSettings).findRelatedImages) {
+        console.log('[Findable] Image relevance check enabled.');
         document.querySelectorAll('img').forEach(async (img) => {
           if (!img.src || !img.src.startsWith('http')) {
             return;
           }
           try {
-            // Fetch the image and get it as a blob
             const response = await fetch(img.src);
-            if (!response.ok) {
-                // Silently ignore failed fetches for now
-                return;
-            }
+            if (!response.ok) return;
             const blob = await response.blob();
 
-            // Send blob to background script for analysis
             port.postMessage({
-              type: 'extractImageInfo',
+              type: 'checkImageRelevance',
               imageData: blob,
               prompt: term,
+              imgSrc: img.src // Add unique identifier
             });
-            port.onMessage.addListener(function(msg) {
-                if (msg.type === 'extractImageInfo-response') {
-                    console.log(`[Findable] Analysis for ${img.src}:`, msg.analysis);
-                }
-            });
-
           } catch (error) {
-              // Silently ignore failed fetches
+            // Silently ignore network or CORS errors
           }
         });
+      }
+    });
+
+    // Centralized listener for image relevance responses
+    port.onMessage.addListener(function(msg) {
+      if (msg.type === 'checkImageRelevance-response' && msg.isRelevant) {
+        const { imgSrc, term } = msg;
+        const imgElement = document.querySelector(`img[src="${imgSrc}"]`) as HTMLImageElement;
+        if (imgElement) {
+          console.log(`[Findable] Image ${imgSrc} is relevant to "${term}". Highlighting.`);
+          imgElement.style.border = '5px solid #3b82f6';
+          imgElement.style.padding = '2px';
+          imgElement.style.boxSizing = 'border-box';
+        }
       }
     });
 
@@ -338,6 +354,7 @@ function toggleFindableUI() {
 
     searchBar.$on('close', () => {
       clear();
+      clearImageHighlights();
       
       // Send close command to iframes
       const iframes = document.querySelectorAll('iframe');

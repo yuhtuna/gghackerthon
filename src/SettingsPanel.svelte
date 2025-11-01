@@ -42,9 +42,9 @@
   {/if}
 
   <div class="toggle-container">
-    <label for="image-toggle">Images</label>
+    <label for="image-toggle">Find Related Images</label>
     <label class="switch">
-      <input type="checkbox" id="image-toggle" bind:checked={$appSettings.extractImageInfo}>
+      <input type="checkbox" id="image-toggle" bind:checked={$appSettings.findRelatedImages}>
       <span class="slider round"></span>
     </label>
   </div>
