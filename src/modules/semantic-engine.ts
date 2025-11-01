@@ -2,7 +2,8 @@
 // src/modules/semantic-engine.ts
 import type { DescriptiveMatch, SemanticMatch, SemanticTerms } from './ai-types';
 
-let session: chrome.ai.TextSession | null = null;
+// Change the session type to support a generic session for multimodal capabilities
+let session: chrome.ai.AIGenericSession | null = null;
 const sessionCache = new Map<string, SemanticTerms>();
 
 export async function initializeAiSession(): Promise<void> {
@@ -14,15 +15,56 @@ export async function initializeAiSession(): Promise<void> {
   }
 
   try {
-    const availability = await chrome.ai.canCreateTextSession();
+    // Use canCreateGenericSession to check for multimodal support
+    const availability = await chrome.ai.canCreateGenericSession();
     if (availability === 'readily' || availability === 'after-download') {
-      session = await chrome.ai.createTextSession();
-      console.log("AI session initialized successfully!");
+      // Create a generic session with multimodal capabilities
+      session = await chrome.ai.createGenericSession({
+        expectedInputs: ['text', 'image'],
+        expectedOutputs: ['text'],
+      });
+      console.log("AI session initialized successfully for multimodal use!");
     } else {
       console.error("The on-device model is not ready:", availability);
     }
   } catch (error) {
     console.error("Error initializing AI session:", error);
+  }
+}
+
+// New function to handle image analysis
+export async function analyzeImage(imageData: Blob, prompt: string): Promise<string> {
+  if (!session) {
+    await initializeAiSession();
+    if (!session) return "AI session not available.";
+  }
+
+  try {
+    // Convert blob to base64 and remove the data URL prefix
+    const reader = new FileReader();
+    const base64ImageData = await new Promise<string>((resolve, reject) => {
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(imageData);
+    });
+
+    const pureBase64 = base64ImageData.split(',')[1];
+
+    // The prompt now includes the base64-encoded image data
+    const result = await session.prompt({
+      data: {
+        image: { data: pureBase64, mimeType: imageData.type },
+        text: prompt
+      }
+    });
+
+    return result.text();
+  } catch (error) {
+    console.error("Error analyzing image:", error);
+    if (error instanceof Error && error.message.includes('destroyed')) {
+      session = null;
+    }
+    return "Failed to analyze image.";
   }
 }
 
@@ -63,10 +105,10 @@ export async function getSemanticTerms(term: string, pageContent: string, option
   `;
 
   try {
-    const aiResponseString = await session.prompt(prompt, options);
+    const result = await session.prompt({ data: { text: prompt } }, options);
+    const aiResponseString = await result.text();
     const parsedResponse = parseJsonResponse<SemanticTerms>(aiResponseString);
     if (!parsedResponse) throw new Error("JSON parsing failed.");
-    
     const result: SemanticTerms = {
       correctedTerm: parsedResponse.correctedTerm || term,
       semanticMatches: parsedResponse.semanticMatches || [],
@@ -103,7 +145,8 @@ export async function getDescriptiveMatches(textChunk: string, description: stri
   `;
 
   try {
-    const aiResponseString = await session.prompt(prompt, options);
+    const result = await session.prompt({ data: { text: prompt } }, options);
+    const aiResponseString = await result.text();
     const parsedResponse = parseJsonResponse<{ matches: DescriptiveMatch[] }>(aiResponseString);
     if (!parsedResponse || !Array.isArray(parsedResponse.matches)) {
         console.warn("AI response for descriptive matches was malformed:", parsedResponse);
