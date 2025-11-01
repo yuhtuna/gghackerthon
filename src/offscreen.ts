@@ -73,3 +73,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 initializeAiSession();
+
+// Signal to the background script that the offscreen document is ready
+chrome.runtime.sendMessage({ type: 'offscreen-ready' });
