@@ -4,7 +4,7 @@ import { initializeAiSession, getSemanticTerms, getDescriptiveMatches } from './
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.target !== 'offscreen') {
-    return false;
+    return;
   }
 
   if (request.type === 'getSemanticTerms') {

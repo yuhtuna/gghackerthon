@@ -103,13 +103,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       });
       messageQueue.delete(sender.tab.id);
     }
-    return false;
+    return;
   }
 
   if (request.type === 'offscreen-ready') {
     isOffscreenReady = true;
     processOffscreenQueue();
-    return false;
+    return;
   }
 
   if (request.type === 'getSemanticTerms' || request.type === 'getDescriptiveMatches' || request.type === 'extractImageInfo') {
