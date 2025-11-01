@@ -1,3 +1,4 @@
+
 import type { DescriptiveMatch } from './modules/ai-types';
 import SearchBar from './SearchBar.svelte';
 import { highlightCategorized, clear, goToNext, goToPrev, goTo } from './highlighter';
@@ -5,6 +6,15 @@ import type { SemanticTerms } from './modules/semantic-engine';
 import { appSettings } from './stores';
 import { get } from 'svelte/store';
 import { debounce } from './modules/utils';
+
+let port: chrome.runtime.Port;
+
+function connect() {
+    port = chrome.runtime.connect({ name: "content-script" });
+    port.onDisconnect.addListener(connect);
+}
+
+connect();
 
 function extractPdfText(): string | null {
   console.log('[Findable] Running PDF text extraction...');
@@ -85,31 +95,35 @@ function toggleFindableUI() {
     const predictiveSmartSearch = debounce(async (term: string, searchId: number) => {
       searchBar.setLoading(true);
       const pageContent = iframeTextContent || document.body.innerText;
-      const results: SemanticTerms = await chrome.runtime.sendMessage({
+      port.postMessage({
         type: 'getSemanticTerms',
         term,
         pageContent
       });
-      
-      if (searchId !== latestSearchId) return;
+      port.onMessage.addListener(function(msg) {
+        if (msg.type === 'getSemanticTerms-response') {
+          const results: SemanticTerms = msg.results;
+          if (searchId !== latestSearchId) return;
 
-      if (results && results.semanticMatches) {
-        const threshold = get(appSettings).relevanceThreshold;
-        const filteredMatches = results.semanticMatches.filter(m => m.score >= threshold);
+          if (results && results.semanticMatches) {
+            const threshold = get(appSettings).relevanceThreshold;
+            const filteredMatches = results.semanticMatches.filter(m => m.score >= threshold);
 
-        const newTotal = highlightCategorized({
-          original: [results.correctedTerm || term],
-          semanticMatches: filteredMatches,
-        });
+            const newTotal = highlightCategorized({
+              original: [results.correctedTerm || term],
+              semanticMatches: filteredMatches,
+            });
 
-        const mainFrame = frameResults.find(f => f.frame === window);
-        if (mainFrame) mainFrame.count = newTotal;
+            const mainFrame = frameResults.find(f => f.frame === window);
+            if (mainFrame) mainFrame.count = newTotal;
 
-        totalResults = frameResults.reduce((sum, f) => sum + f.count, 0);
-        searchBar.setResults(totalResults, totalResults > 0 ? 0 : -1);
-      }
+            totalResults = frameResults.reduce((sum, f) => sum + f.count, 0);
+            searchBar.setResults(totalResults, totalResults > 0 ? 0 : -1);
+          }
 
-      searchBar.setLoading(false);
+          searchBar.setLoading(false);
+        }
+      });
     }, 800);
 
     const performDeepScan = async (description: string, searchId: number, isSubsequentScan = false) => {
@@ -118,30 +132,35 @@ function toggleFindableUI() {
 
       const pageText = iframeTextContent || extractPdfText() || document.body.innerText;
 
-      const newMatches: DescriptiveMatch[] = await chrome.runtime.sendMessage({
+      port.postMessage({
         type: 'getDescriptiveMatches',
         pageContent: pageText,
         description
       });
 
-      if (searchId !== latestSearchId) return;
-      if (!newMatches) {
-        searchBar.setLoading(false);
-        searchBar.showScanMoreButton(true);
-        return;
-      }
+      port.onMessage.addListener(function(msg) {
+        if (msg.type === 'getDescriptiveMatches-response') {
+          const newMatches: DescriptiveMatch[] = msg.newMatches;
+          if (searchId !== latestSearchId) return;
+          if (!newMatches) {
+            searchBar.setLoading(false);
+            searchBar.showScanMoreButton(true);
+            return;
+          }
 
-      allMatches = allMatches.concat(newMatches);
+          allMatches = allMatches.concat(newMatches);
 
-      const threshold = get(appSettings).relevanceThreshold;
-      const filteredMatches = allMatches.filter(m => m.relevanceScore >= threshold);
+          const threshold = get(appSettings).relevanceThreshold;
+          const filteredMatches = allMatches.filter(m => m.relevanceScore >= threshold);
 
-      const sentencesToHighlight = filteredMatches.map(m => ({ word: m.matchingSentence, score: m.relevanceScore }));
-      const total = highlightCategorized({ original: [], semanticMatches: sentencesToHighlight, isSentence: true });
+          const sentencesToHighlight = filteredMatches.map(m => ({ word: m.matchingSentence, score: m.relevanceScore }));
+          const total = highlightCategorized({ original: [], semanticMatches: sentencesToHighlight, isSentence: true });
 
-      searchBar.setResults(total, total > 0 ? 0 : -1);
-      searchBar.setLoading(false);
-      searchBar.showScanMoreButton(true);
+          searchBar.setResults(total, total > 0 ? 0 : -1);
+          searchBar.setLoading(false);
+          searchBar.showScanMoreButton(true);
+        }
+      });
     };
 
     let frameResults = [{ frame: window, count: 0 }];
@@ -259,13 +278,16 @@ function toggleFindableUI() {
             const blob = await response.blob();
 
             // Send blob to background script for analysis
-            const analysis = await chrome.runtime.sendMessage({
+            port.postMessage({
               type: 'extractImageInfo',
               imageData: blob,
               prompt: term,
             });
-
-            console.log(`[Findable] Analysis for ${img.src}:`, analysis);
+            port.onMessage.addListener(function(msg) {
+                if (msg.type === 'extractImageInfo-response') {
+                    console.log(`[Findable] Analysis for ${img.src}:`, msg.analysis);
+                }
+            });
 
           } catch (error) {
               // Silently ignore failed fetches

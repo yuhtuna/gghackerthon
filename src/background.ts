@@ -4,9 +4,6 @@ import './modules/ai-types';
 import contentScript from './content?script';
 import offscreenDocumentUrl from './offscreen.html?url';
 
-const readyTabs = new Set<number>();
-const messageQueue = new Map<number, any[]>();
-
 let creating: Promise<void> | null; // A promise that resolves when the offscreen document is created
 
 async function setupOffscreenDocument(path: string) {
@@ -40,18 +37,7 @@ chrome.commands.onCommand.addListener(async (command) => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab?.id) {
         try {
-            if (readyTabs.has(tab.id)) {
-                chrome.tabs.sendMessage(tab.id, { type: 'toggle-findable-ui' });
-            } else {
-                if (!messageQueue.has(tab.id)) {
-                    messageQueue.set(tab.id, []);
-                }
-                messageQueue.get(tab.id)?.push({ type: 'toggle-findable-ui' });
-                chrome.scripting.executeScript({
-                    target: { tabId: tab.id },
-                    files: [contentScript],
-                });
-            }
+            chrome.tabs.sendMessage(tab.id, { type: 'toggle-findable-ui' });
         } catch (error) {
             console.error("Failed to send toggle-findable-ui message:", error);
         }
@@ -60,10 +46,7 @@ chrome.commands.onCommand.addListener(async (command) => {
 
 // Inject content script on tab updates to ensure it's available
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-    if (changeInfo.status === 'loading') {
-        readyTabs.delete(tabId);
-        messageQueue.delete(tabId);
-    } else if (changeInfo.status === 'complete' && tab.url && (tab.url.startsWith('http://') || tab.url.startsWith('https://'))) {
+    if (changeInfo.status === 'complete' && tab.url && (tab.url.startsWith('http://') || tab.url.startsWith('https://'))) {
         chrome.scripting.executeScript({
             target: { tabId: tabId },
             files: [contentScript],
@@ -71,30 +54,15 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     }
 });
 
-// AI Message Listener
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.type === 'content-script-ready' && sender.tab?.id) {
-        readyTabs.add(sender.tab.id);
-        if (messageQueue.has(sender.tab.id)) {
-            messageQueue.get(sender.tab.id)?.forEach(message => {
-                try {
-                    chrome.tabs.sendMessage(sender.tab.id, message);
-                } catch (error) {
-                    console.error("Failed to send queued message:", error);
-                }
-            });
-            messageQueue.delete(sender.tab.id);
-        }
-        return;
+chrome.runtime.onConnect.addListener((port) => {
+    if (port.name === "content-script") {
+        port.onMessage.addListener((request) => {
+            (async () => {
+                await setupOffscreenDocument(offscreenDocumentUrl);
+                // @ts-ignore
+                const response = await chrome.runtime.sendMessage({ ...request, target: 'offscreen' });
+                port.postMessage({ type: `${request.type}-response`, ...response });
+            })();
+        });
     }
-
-  if (request.type === 'getSemanticTerms' || request.type === 'getDescriptiveMatches' || request.type === 'extractImageInfo') {
-    (async () => {
-      await setupOffscreenDocument(offscreenDocumentUrl);
-      // @ts-ignore
-      const response = await chrome.runtime.sendMessage({ ...request, target: 'offscreen' });
-      sendResponse(response);
-    })();
-    return true;
-  }
 });
