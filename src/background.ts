@@ -5,6 +5,8 @@ import contentScript from './content?script';
 import offscreenDocumentUrl from './offscreen.html?url';
 
 let creating: Promise<void> | null; // A promise that resolves when the offscreen document is created
+let offscreenReady = false;
+const messageQueue: any[] = [];
 
 async function setupOffscreenDocument(path: string) {
   // Check if we have an existing document.
@@ -26,6 +28,32 @@ async function setupOffscreenDocument(path: string) {
     creating = null;
   }
 }
+
+function processQueue() {
+  while (messageQueue.length > 0) {
+    const { request, port } = messageQueue.shift();
+    (async () => {
+      try {
+        await setupOffscreenDocument(offscreenDocumentUrl);
+        // @ts-ignore
+        const response = await chrome.runtime.sendMessage({ ...request, target: 'offscreen' });
+        port.postMessage({ type: `${request.type}-response`, ...response });
+      } catch (error) {
+        console.error("Error processing message from queue:", error);
+        port.postMessage({ type: `${request.type}-response`, error: 'Failed to process request in offscreen document' });
+      }
+    })();
+  }
+}
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'offscreen-ready') {
+    offscreenReady = true;
+    processQueue();
+  }
+  return true;
+});
+
 
 // AI Session Pre-warming
 chrome.runtime.onStartup.addListener(() => setupOffscreenDocument(offscreenDocumentUrl));
@@ -69,12 +97,21 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 chrome.runtime.onConnect.addListener((port) => {
     if (port.name === "content-script") {
         port.onMessage.addListener((request) => {
+          if (offscreenReady) {
             (async () => {
-                await setupOffscreenDocument(offscreenDocumentUrl);
-                // @ts-ignore
-                const response = await chrome.runtime.sendMessage({ ...request, target: 'offscreen' });
-                port.postMessage({ type: `${request.type}-response`, ...response });
+                try {
+                    await setupOffscreenDocument(offscreenDocumentUrl);
+                    // @ts-ignore
+                    const response = await chrome.runtime.sendMessage({ ...request, target: 'offscreen' });
+                    port.postMessage({ type: `${request.type}-response`, ...response });
+                } catch (error) {
+                    console.error("Error sending message to offscreen document:", error);
+                    port.postMessage({ type: `${request.type}-response`, error: 'Failed to communicate with offscreen document' });
+                }
             })();
+          } else {
+            messageQueue.push({ request, port });
+          }
         });
     }
 });

@@ -54,4 +54,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
-initializeAiSession();
+(async () => {
+  await initializeAiSession();
+  chrome.runtime.sendMessage({ type: 'offscreen-ready' });
+})();
