@@ -417,6 +417,8 @@ if (!(window as any).findableContentScriptLoaded) {
     if (request.type === 'toggle-findable-ui') {
       toggleFindableUI();
       sendResponse({ success: true });
+    } else if (request.type === 'ping') {
+      sendResponse({ ack: "pong" });
     }
     return true; // Keep the message channel open for async response
   });

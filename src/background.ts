@@ -36,11 +36,23 @@ chrome.commands.onCommand.addListener(async (command) => {
     if (command !== "open-findable-search") return;
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab?.id) {
-        try {
-            chrome.tabs.sendMessage(tab.id, { type: 'toggle-findable-ui' });
-        } catch (error) {
-            console.error("Failed to send toggle-findable-ui message:", error);
-        }
+        // First, try sending a message to check if the content script is already there.
+        chrome.tabs.sendMessage(tab.id, { type: 'ping' }, (response) => {
+            if (chrome.runtime.lastError) {
+                // If it fails, the script is not injected. Inject and then send the toggle command.
+                console.log('[Findable] Content script not found, injecting...');
+                chrome.scripting.executeScript({
+                    target: { tabId: tab.id! },
+                    files: [contentScript],
+                }).then(() => {
+                    // After injecting, send the message to toggle the UI.
+                    chrome.tabs.sendMessage(tab.id!, { type: 'toggle-findable-ui' });
+                }).catch(err => console.error('[Findable] Error injecting script on command:', err));
+            } else {
+                // If the script is already there, just send the toggle command.
+                chrome.tabs.sendMessage(tab.id!, { type: 'toggle-findable-ui' });
+            }
+        });
     }
 });
 
