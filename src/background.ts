@@ -80,7 +80,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         sendResponse(allMatches);
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') {
-          console.log('Deep scan was cancelled.');
+          console.log('A new search was initiated, cancelling the previous deep scan.');
         } else {
           console.error("Error getting descriptive matches:", error);
           sendResponse({ error: error.message });
